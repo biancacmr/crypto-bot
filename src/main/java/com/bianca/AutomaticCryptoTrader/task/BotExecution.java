@@ -4,28 +4,46 @@ import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.model.MovingAverageResult;
 import com.bianca.AutomaticCryptoTrader.model.MovingAverageStrategy;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.ScheduledExecutorService;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class BotExecution {
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
+    private static final int BASE_DELAY = 15;
     private final BinanceService binanceService;
     private final BinanceConfig binanceConfig;
+
+    @PostConstruct
+    public void initialize() {
+        scheduleTask(0);
+    }
+
+    private void scheduleTask(int delay) {
+        // Call the execute() function
+        scheduler.schedule(this::execute, delay, TimeUnit.MINUTES);
+    }
 
     public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig) {
         this.binanceService = binanceService;
         this.binanceConfig = binanceConfig;
     }
 
-    @Scheduled(fixedRate = 60000)
     public void execute() {
+        int delay = BASE_DELAY;
+
         try {
+
             LOGGER.info("---------------------------------------------");
             LOGGER.info("INIT AutomaticCryptoTrader...");
             LOGGER.info("---------------------------------------------");
@@ -71,7 +89,7 @@ public class BotExecution {
                 binanceService.printStock(binanceConfig.getStockCode());
                 binanceService.printStock("USDT");
 
-////                self.time_to_sleep = self.delay_after_order
+                delay *= 2;
             } else if (!binanceService.getLastTradeDecision() && binanceService.getActualTradePosition()) {
                 LOGGER.info("Ação final: VENDER");
 
@@ -87,16 +105,17 @@ public class BotExecution {
                 binanceService.printStock(binanceConfig.getStockCode());
                 binanceService.printStock("USDT");
 
-//                self.time_to_sleep = self.delay_after_order
+                delay *= 2;
             } else {
                 LOGGER.info("Ação final: MANTER POSIÇÃO");
 
-////                self.time_to_sleep = self.delay_after_order
             }
 
             LOGGER.info("---------------------------------------------");
+            scheduleTask(delay);
         } catch (Exception e) {
             LOGGER.error("Erro ao executar tarefa agendada: ", e);
+            scheduleTask(delay);
         }
     }
 

@@ -266,7 +266,7 @@ public class BinanceService {
         limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
 
         // Ajustar a quantidade para o stepSize permitido
-        double quantity = Math.floor(config.getTradedQuantity() / stepSizeValue) * stepSizeValue;
+        double quantity = (config.getTradedQuantity() / stepSizeValue) * stepSizeValue;
 
         // Ensure precision is 8 digits
         BigDecimal preciseQuantity = BigDecimal.valueOf(quantity).setScale(config.getStockPrecisionDigits(), RoundingMode.HALF_UP);
@@ -363,11 +363,13 @@ public class BinanceService {
             limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
 
             // Ajustar a quantidade para o stepSize permitido
-            double quantity = Math.floor(lastStockAccountBalance / stepSizeValue) * stepSizeValue;
+            double quantity = (lastStockAccountBalance / stepSizeValue) * stepSizeValue;
 
             // Ensure precision is 8 digits
             BigDecimal preciseQuantity = BigDecimal.valueOf(quantity).setScale(config.getStockPrecisionDigits(), RoundingMode.HALF_UP);
             quantity = preciseQuantity.doubleValue();
+
+            System.out.println(preciseQuantity);
 
             // Log information
             LOGGER.info("Enviando ordem limitada de venda para " + config.getOperationCode() + ":");
