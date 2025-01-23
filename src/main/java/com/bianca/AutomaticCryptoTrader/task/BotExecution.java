@@ -30,7 +30,6 @@ public class BotExecution {
     }
 
     private void scheduleTask(int delay) {
-        // Call the execute() function
         scheduler.schedule(this::execute, delay, TimeUnit.MINUTES);
     }
 
@@ -71,9 +70,9 @@ public class BotExecution {
             LOGGER.info("---------------------------------------");
             LOGGER.info("Decisão Final: " + (tradeDecision ? "COMPRAR" : "VENDER"));
 
-            /** Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
-             * Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo
-             * Demais casos, nada acontece **/
+            /* Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
+              Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo
+              Demais casos, nada acontece **/
             if (binanceService.getLastTradeDecision() && !binanceService.getActualTradePosition()) {
                 LOGGER.info("Ação final: COMPRAR");
 
