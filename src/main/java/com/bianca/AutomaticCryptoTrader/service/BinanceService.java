@@ -309,9 +309,12 @@ public class BinanceService {
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
             logHelper.createLogOrder(response);
 
-            // Envia email avisando da ação realizada
-            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
-            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
+            // Envia e-mail avisando da ação realizada
+            ArrayList<String> destinatarios = new ArrayList<>();
+            destinatarios.add(config.getEmailReceiver());
+            destinatarios.add("gabrielsilvabaptista@gmail.com");
+
+            emailService.sendEmail(destinatarios, "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
@@ -386,11 +389,13 @@ public class BinanceService {
             LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
             logHelper.createLogOrder(response); // Create a log
 
-            // Envia email avisando da ação realizada
-            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
-            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
-            LOGGER.info("Email enviado.");
+            // Envia e-mail avisando da ação realizada
+            ArrayList<String> destinatarios = new ArrayList<>();
+            destinatarios.add(config.getEmailReceiver());
+            destinatarios.add("gabrielsilvabaptista@gmail.com");
 
+            emailService.sendEmail(destinatarios, "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
+            LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
             throw e;
@@ -471,7 +476,6 @@ public class BinanceService {
         parameters.put("recvWindow", "30000");
         return parameters;
     }
-
 
     public ArrayList<Order> getOpenOrders() {
         return openOrders;

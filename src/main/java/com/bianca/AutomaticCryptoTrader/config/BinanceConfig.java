@@ -1,62 +1,62 @@
 package com.bianca.AutomaticCryptoTrader.config;
 
-import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class BinanceConfig {
-    @Getter
     @Value("${binance.apiKey}")
     private String apiKey;
 
-    @Getter
     @Value("${binance.secretKey}")
     private String secretKey;
 
-    @Getter
     @Value("${binance.url}")
     private String url;
 
-    @Getter
     @Value("${binance.stockCode}")
     private String stockCode;
 
-    @Getter
     @Value("${binance.operationCode}")
     private String operationCode;
 
-    @Getter
     @Value("${binance.candlePeriod}")
     private String candlePeriod;
 
-    @Getter
     @Value("${binance.tradedQuantity}")
     private Double tradedQuantity;
 
-    @Getter
     @Value("${binance.volatilityFactor}")
     private Double volatilityFactor;
 
-    @Getter
     @Value("${binance.emailReceiver}")
     private String emailReceiver;
 
-    @Getter
     @Value("${spring.mail.host}")
     private String emailHost;
 
-    @Getter
     @Value("${spring.mail.port}")
     private String emailPort;
 
-    @Getter
     @Value("${spring.mail.username}")
     private String emailUsername;
 
-    @Getter
     @Value("${spring.mail.password}")
     private String emailPassword;
+
+    @Value("${binance.maxBuyPrice}")
+    private String maxBuyPrice;
+
+    @Value("${binance.buyCurrency}")
+    private String buyCurrency;
+
+    public String getMaxBuyPrice() {
+        return maxBuyPrice;
+    }
+
+    public String getBuyCurrency() {
+        return buyCurrency;
+    }
 
     public String getEmailPassword() {
         return emailPassword;
