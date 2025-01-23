@@ -286,25 +286,22 @@ public class BinanceService {
             parameters.put("quantity", quantity);
             parameters.put("price", Math.round(limitPrice * 100.0) / 100.0);
 
-//            String rawResponse = client.createTrade().newOrder(parameters);
-            String rawResponse = "TESTE";
-//            JSONObject response = new JSONObject(rawResponse);
+            String rawResponse = client.createTrade().newOrder(parameters);
+            JSONObject response = new JSONObject(rawResponse);
 
-//            if (response.has("code") && response.has("msg")) {
-//                throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
-//            }
+            if (response.has("code") && response.has("msg")) {
+                throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
+            }
 
             this.actualTradePosition = true;
 
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
-//            logHelper.createLogOrder(response);
+            logHelper.createLogOrder(response);
 
             // Envia email avisando da ação realizada
-//            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
-            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Compra Limitada Executada", "SÓ TESTE hehe: " + parameters.toString());
-            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Compra Limitada Executada", "SÓ TESTE hehe: " + parameters.toString());
+            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
+            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
-
             return true;
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
@@ -387,23 +384,20 @@ public class BinanceService {
             parameters.put("quantity", quantity);
             parameters.put("price", Math.round(limitPrice * 100.0) / 100.0);
 
-//            String rawResponse = client.createTrade().newOrder(parameters);
-            String rawResponse = "TESTE";
-//            JSONObject response = new JSONObject(rawResponse);
-//
-//            if (response.has("code") && response.has("msg")) {
-//                throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
-//            }
+            String rawResponse = client.createTrade().newOrder(parameters);
+            JSONObject response = new JSONObject(rawResponse);
+
+            if (response.has("code") && response.has("msg")) {
+                throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
+            }
 
             actualTradePosition = false; // Update position to sold
-//            LOGGER.info("Ordem VENDA limitada enviada com sucesso: " + response);
-            LOGGER.info("Ordem VENDA limitada enviada com sucesso: " + rawResponse);
-
-//            logHelper.createLogOrder(response); // Create a log
+            LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
+            logHelper.createLogOrder(response); // Create a log
 
             // Envia email avisando da ação realizada
-            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Venda Limitada Executada", "SÓ TESTE hehe: " + parameters.toString());
-            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Venda Limitada Executada", "SÓ TESTE hehe: " + parameters);
+            emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
+            emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
 
             return true;
