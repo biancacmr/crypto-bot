@@ -9,7 +9,6 @@ import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
-import jakarta.mail.MessagingException;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,8 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -147,11 +144,44 @@ public class BinanceService {
         }
     }
 
+    /**
+     * Verifica se há pelo menos uma fração mínima da moeda em questão na conta (step size)
+     */
     private boolean updateActualTradePosition() {
-//        return this.lastStockAccountBalance > 0.1; // PARA MOEDAS PEQUENAS
-        return this.lastStockAccountBalance > 0.001; // PARA MOEDAS GRANDES
+        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
+        Double stepSize = getAssetStepSize(symbolInfo);
+        return this.lastStockAccountBalance > stepSize;
     }
 
+    private Double getAssetStepSize(JSONObject symbolInfo) {
+        JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
+
+        // Extract LOT_SIZE and get stepSize using Streams
+        Optional<Double> stepSize = filters.toList().stream()
+                .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
+                .filter(filter -> "LOT_SIZE".equals(filter.getString("filterType")))
+                .map(filter -> filter.getDouble("stepSize"))
+                .findFirst();
+
+        return stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
+    }
+
+    private Double getAssetTickSize(JSONObject symbolInfo) {
+        JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
+
+        // Extract PRICE_FILTER and get tickSize using Streams
+        Optional<Double> tickSize = filters.toList().stream()
+                .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
+                .filter(filter -> "PRICE_FILTER".equals(filter.getString("filterType")))
+                .map(filter -> filter.getDouble("tickSize"))
+                .findFirst();
+
+        return tickSize.orElseThrow(() -> new RuntimeException("Tick Size not found"));
+    }
+
+    /**
+     * Atualiza o valor livre atual da moeda em questão na carteira
+     */
     private Double updatedLastStockAccountBalance() throws RuntimeException {
         ArrayList<Balance> accountBalance = accountData.getBalances();
 
@@ -229,28 +259,13 @@ public class BinanceService {
         }
     }
 
-    public boolean buyLimitedOrder() throws Exception {
+    public void buyLimitedOrder() throws Exception {
         double price = 0.0; // Pode ser ajustado posteriormente
 
-        JSONObject symbolInfo = getSymbolInfo();
-        JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
+        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
 
-        // Extract PRICE_FILTER and get tickSize using Streams
-        Optional<Double> tickSize = filters.toList().stream()
-                .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
-                .filter(filter -> "PRICE_FILTER".equals(filter.getString("filterType")))
-                .map(filter -> filter.getDouble("tickSize"))
-                .findFirst();
-
-        // Extract LOT_SIZE and get stepSize using Streams
-        Optional<Double> stepSize = filters.toList().stream()
-                .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
-                .filter(filter -> "LOT_SIZE".equals(filter.getString("filterType")))
-                .map(filter -> filter.getDouble("stepSize"))
-                .findFirst();
-
-        double tickSizeValue = tickSize.orElseThrow(() -> new RuntimeException("Tick Size not found"));
-        double stepSizeValue = stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
+        double tickSizeValue = getAssetTickSize(symbolInfo);
+        double stepSizeValue = getAssetStepSize(symbolInfo);
 
         // Pega o valor do candle atual
         double closePrice = stockData.getLast().getClosePrice();
@@ -266,11 +281,7 @@ public class BinanceService {
         limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
 
         // Ajustar a quantidade para o stepSize permitido
-        double quantity = (config.getTradedQuantity() / stepSizeValue) * stepSizeValue;
-
-        // Ensure precision is 8 digits
-        BigDecimal preciseQuantity = BigDecimal.valueOf(quantity).setScale(config.getStockPrecisionDigits(), RoundingMode.HALF_UP);
-        quantity = preciseQuantity.doubleValue();
+        double quantity = Math.floor(config.getTradedQuantity() / stepSizeValue) * stepSizeValue;
 
         LOGGER.info("Enviando ordem limitada de compra para {}", config.getOperationCode());
         LOGGER.info(" - Quantidade: {}", quantity);
@@ -302,16 +313,15 @@ public class BinanceService {
             emailService.sendEmail(config.getEmailReceiver(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
             emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
-            return true;
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
             throw e;
         }
     }
 
-    public JSONObject getSymbolInfo() {
+    public JSONObject getSymbolInfo(String symbol) {
         Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("symbol", config.getOperationCode());
+        parameters.put("symbol", symbol);
 
         String rawResponse = client.createMarket().exchangeInfo(parameters);
         JSONObject response = new JSONObject(rawResponse);
@@ -323,30 +333,15 @@ public class BinanceService {
         return response;
     }
 
-    public boolean sellLimitedOrder() throws Exception {
+    public void sellLimitedOrder() throws Exception {
         try {
             double price = 0.0; // Pode ser trocado depois
 
             // Get symbol info to respect filters
-            JSONObject symbolInfo = getSymbolInfo();
-            JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
+            JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
 
-            // Extract PRICE_FILTER and get tickSize using Streams
-            Optional<Double> tickSize = filters.toList().stream()
-                    .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
-                    .filter(filter -> "PRICE_FILTER".equals(filter.getString("filterType")))
-                    .map(filter -> filter.getDouble("tickSize"))
-                    .findFirst();
-
-            // Extract LOT_SIZE and get stepSize using Streams
-            Optional<Double> stepSize = filters.toList().stream()
-                    .map(obj -> new JSONObject((java.util.Map<?, ?>) obj)) // Convert Map back to JSONObject
-                    .filter(filter -> "LOT_SIZE".equals(filter.getString("filterType")))
-                    .map(filter -> filter.getDouble("stepSize"))
-                    .findFirst();
-
-            double tickSizeValue = tickSize.orElseThrow(() -> new RuntimeException("Tick Size not found"));
-            double stepSizeValue = stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
+            double tickSizeValue = getAssetTickSize(symbolInfo);
+            double stepSizeValue = getAssetStepSize(symbolInfo);
 
             // Pega o valor do candle atual
             double closePrice = stockData.getLast().getClosePrice();
@@ -363,13 +358,7 @@ public class BinanceService {
             limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
 
             // Ajustar a quantidade para o stepSize permitido
-            double quantity = (lastStockAccountBalance / stepSizeValue) * stepSizeValue;
-
-            // Ensure precision is 8 digits
-            BigDecimal preciseQuantity = BigDecimal.valueOf(quantity).setScale(config.getStockPrecisionDigits(), RoundingMode.HALF_UP);
-            quantity = preciseQuantity.doubleValue();
-
-            System.out.println(preciseQuantity);
+            double quantity = Math.floor(lastStockAccountBalance / stepSizeValue) * stepSizeValue;
 
             // Log information
             LOGGER.info("Enviando ordem limitada de venda para " + config.getOperationCode() + ":");
@@ -402,7 +391,6 @@ public class BinanceService {
             emailService.sendEmail("gabrielsilvabaptista@gmail.com", "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
 
-            return true;
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
             throw e;
@@ -458,7 +446,7 @@ public class BinanceService {
                 .append("</head>")
                 .append("<body>")
                 .append("<div class=\"email-container\">")
-                .append("<h2>Ordem Enviada " + (type.equals("BUY") ? "COMPRA":"VENDA") + "</h2>")
+                .append("<h2>Ordem Enviada " + (type.trim().equalsIgnoreCase("BUY") ? "COMPRA":"VENDA") + "</h2>")
                 .append("<table>")
                 .append("<tr><th>Status</th><td>").append(status).append("</td></tr>")
                 .append("<tr><th>Side</th><td>").append(side).append("</td></tr>")
@@ -469,7 +457,6 @@ public class BinanceService {
                 .append("<tr><th>Valor em ").append(currency).append("</th><td>").append(totalValue).append("</td></tr>")
                 .append("<tr><th>Tipo</th><td>").append(type).append("</td></tr>")
                 .append("<tr><th>Data/Hora</th><td>").append(formattedDate).append("</td></tr>")
-//                .append("<tr><th>Complete Order</th><td>").append(order).append("</td></tr>")
                 .append("</table>")
                 .append("<div class=\"divider\"></div>")
                 .append("</div>")

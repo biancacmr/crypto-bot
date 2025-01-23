@@ -39,10 +39,6 @@ public class BinanceConfig {
     private Double volatilityFactor;
 
     @Getter
-    @Value("${binance.stockPrecisionDigits}")
-    private int stockPrecisionDigits;
-
-    @Getter
     @Value("${binance.emailReceiver}")
     private String emailReceiver;
 
@@ -80,10 +76,6 @@ public class BinanceConfig {
 
     public String getEmailReceiver() {
         return emailReceiver;
-    }
-
-    public int getStockPrecisionDigits() {
-        return stockPrecisionDigits;
     }
 
     public String getApiKey() {
