@@ -24,6 +24,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 @Service
 public class BinanceService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
@@ -150,13 +153,33 @@ public class BinanceService {
         return updateLastOrderPrice("BUY", "COMPRA");
     }
 
-    private String adjustToStepStr(double value, double step) {
+    /*  Ajusta o valor para o múltiplo mais próximo do passo definido, lidando com problemas de precisão
+        e garantindo que o resultado não seja retornado em notação científica. **/
+    public static Double adjustToStepDouble(double value, double step) {
+        // Determinar o número de casas decimais do step
+        int decimalPlaces = step < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(step))) : 0;
+
+        // Ajustar o valor ao step usando floor
         double adjustedValue = Math.floor(value / step) * step;
-        return String.format("%.8f", adjustedValue);
+
+        // Garantir que o resultado tenha a mesma precisão do step
+        BigDecimal result = BigDecimal.valueOf(adjustedValue).setScale(decimalPlaces, RoundingMode.HALF_UP);
+
+        return result.doubleValue();
     }
 
-    private Double adjustToStepDouble(double value, double step) {
-        return Math.floor(value / step) * step;
+    public static String adjustToStepStr(double value, double step) {
+        // Determinar o número de casas decimais do step
+        int decimalPlaces = step < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(step))) : 0;
+
+        // Ajustar o valor ao step usando floor
+        double adjustedValue = Math.floor(value / step) * step;
+
+        // Garantir que o resultado tenha a mesma precisão do step
+        BigDecimal result = BigDecimal.valueOf(adjustedValue).setScale(decimalPlaces, RoundingMode.HALF_UP);
+
+        // Retornar como String
+        return result.toPlainString();
     }
 
     private String formatTimestamp(long timestamp) {
@@ -272,7 +295,11 @@ public class BinanceService {
                 .map(filter -> filter.getDouble("stepSize"))
                 .findFirst();
 
-        return stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
+        Double stepSizeVal = stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
+
+        if (stepSizeVal <= 0) throw new RuntimeException("Invalid Step Size for asset");
+
+        return stepSizeVal;
     }
 
     private Double getAssetTickSize() {
@@ -401,6 +428,8 @@ public class BinanceService {
 
                 emailService.sendEmail(destinatarios, "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
                 LOGGER.info("Email enviado.");
+            } else {
+                LOGGER.info("ERRO ao vender: Posição já vendida.");
             }
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem de mercado de venda: ", e);
@@ -436,6 +465,8 @@ public class BinanceService {
                 if (!response.getString("status").equals("FILLED")) {
                     throw new RuntimeException("Erro ao cancelar ordem: " + order);
                 }
+
+                LOGGER.info(" - Ordem {} cancelada", order.getOrderId());
             }
 
             LOGGER.info("Todas as open orders canceladas.");
@@ -696,56 +727,56 @@ public class BinanceService {
                     }
                 }
 
-                    LOGGER.info(" - Quantidade parcial executada no total: {}", partialQuantityDiscount);
-                    LOGGER.info(" - Maior preço parcialmente executado: {}",
-                            side.equalsIgnoreCase("SELL") ? lastSellPrice : lastBuyPrice);
-                    return true;
-                } else{
-                    LOGGER.info(" - Não há ordens de compra abertas para {}.", config.getOperationCode());
-                    return false;
-                }
-
-            } catch(Exception e){
-                LOGGER.error("Erro ao verificar ordens abertas para " + config.getOperationCode() + ": " + e.getMessage());
-                throw new RuntimeException("Erro ao verificar ordens abertas.");
+                LOGGER.info(" - Quantidade parcial executada no total: {}", partialQuantityDiscount);
+                LOGGER.info(" - Maior preço parcialmente executado: {}",
+                        side.equalsIgnoreCase("SELL") ? lastSellPrice : lastBuyPrice);
+                return true;
+            } else {
+                LOGGER.info(" - Não há ordens de compra abertas para {}.", config.getOperationCode());
+                return false;
             }
-        }
 
-        private Map<String, Object> getDefaultParameters () {
-            Map<String, Object> parameters = new LinkedHashMap<>();
-            parameters.put("recvWindow", "30000");
-            return parameters;
-        }
-
-        public ArrayList<Order> getOpenOrders () {
-            return openOrders;
-        }
-
-        public boolean getLastTradeDecision () {
-            return lastTradeDecision;
-        }
-
-        public boolean getActualTradePosition () {
-            return actualTradePosition;
-        }
-
-        public Double getLastStockAccountBalance () {
-            return lastStockAccountBalance;
-        }
-
-        public ArrayList<StockData> getStockData () {
-            return stockData;
-        }
-
-        public AccountData getAccountData () {
-            return accountData;
-        }
-
-        public void setLastTradeDecision (Boolean lastTradeDecision){
-            this.lastTradeDecision = lastTradeDecision;
-        }
-
-        public ArrayList<Double> getRollingVolatility () {
-            return rollingVolatility;
+        } catch (Exception e) {
+            LOGGER.error("Erro ao verificar ordens abertas para " + config.getOperationCode() + ": " + e.getMessage());
+            throw new RuntimeException("Erro ao verificar ordens abertas.");
         }
     }
+
+    private Map<String, Object> getDefaultParameters() {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("recvWindow", "30000");
+        return parameters;
+    }
+
+    public ArrayList<Order> getOpenOrders() {
+        return openOrders;
+    }
+
+    public boolean getLastTradeDecision() {
+        return lastTradeDecision;
+    }
+
+    public boolean getActualTradePosition() {
+        return actualTradePosition;
+    }
+
+    public Double getLastStockAccountBalance() {
+        return lastStockAccountBalance;
+    }
+
+    public ArrayList<StockData> getStockData() {
+        return stockData;
+    }
+
+    public AccountData getAccountData() {
+        return accountData;
+    }
+
+    public void setLastTradeDecision(Boolean lastTradeDecision) {
+        this.lastTradeDecision = lastTradeDecision;
+    }
+
+    public ArrayList<Double> getRollingVolatility() {
+        return rollingVolatility;
+    }
+}

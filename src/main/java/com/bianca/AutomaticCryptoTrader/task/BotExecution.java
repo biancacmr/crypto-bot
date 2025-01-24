@@ -52,7 +52,7 @@ public class BotExecution {
             LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
 
             // Estratégias sentinelas de saída
-            // Se perder mais que o panic sell aceitável, ele sai à mercado, independente.
+            // Se perder mais que o panic sell aceitável, ele sai a mercado, independente.
             if (binanceService.stopLossTrigger()) {
                 LOGGER.info("STOP LOSS executado - Saindo a preço de mercado...");
                 scheduleTask(delay);
