@@ -50,6 +50,20 @@ public class BinanceConfig {
     @Value("${binance.buyCurrency}")
     private String buyCurrency;
 
+    @Value("${binance.stopLossPercentage}")
+    private Double stopLossPercentage;
+
+    @Value("${binance.acceptableLossPercentage}")
+    private Double acceptableLossPercentage;
+
+    public Double getAcceptableLossPercentage() {
+        return acceptableLossPercentage/100;
+    }
+
+    public Double getStopLossPercentage() {
+        return stopLossPercentage/100;
+    }
+
     public String getMaxBuyPrice() {
         return maxBuyPrice;
     }
@@ -109,4 +123,5 @@ public class BinanceConfig {
     public Double getVolatilityFactor() {
         return volatilityFactor;
     }
+
 }

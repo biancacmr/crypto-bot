@@ -49,11 +49,17 @@ public class BotExecution {
 
             binanceService.updateAllData();
 
+            LOGGER.info("---------------------------------------------");
             LOGGER.info("Executado {}", getCurrentDateTime());
             LOGGER.info("Posição atual: {}", binanceService.getActualTradePosition() ? "COMPRADO" : "VENDIDO");
             LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
 
-            // TODO:: criar um strategy runner
+            // Estratégias sentinelas de saída
+            // Se perder mais que o panic sell aceitável, ele sai à mercado, independente.
+            if (binanceService.stopLossTrigger()) {
+                LOGGER.info("STOP LOSS executado - Saindo a preço de mercado...");
+                scheduleTask(delay);
+            }
 
             // Executar estratégias
             MovingAverageStrategy movingAverageStrategy = new MovingAverageStrategy(binanceService, LOGGER);

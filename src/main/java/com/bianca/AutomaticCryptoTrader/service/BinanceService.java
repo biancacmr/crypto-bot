@@ -3,7 +3,6 @@ package com.bianca.AutomaticCryptoTrader.service;
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.model.AccountData;
 import com.bianca.AutomaticCryptoTrader.model.Balance;
-import com.bianca.AutomaticCryptoTrader.model.LogHelper;
 import com.bianca.AutomaticCryptoTrader.model.Order;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
@@ -17,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -26,7 +26,7 @@ import java.util.*;
 @Service
 public class BinanceService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
-    private static final LogHelper logHelper = new LogHelper(LOGGER);
+    private static final LogService LOG_SERVICE = new LogService(LOGGER);
 
     @Autowired
     private final EmailService emailService;
@@ -41,6 +41,10 @@ public class BinanceService {
     private ArrayList<StockData> stockData;
     private Double lastStockAccountBalance;
     private AccountData accountData;
+    private Double lastBuyPrice;
+    private Double lastSellPrice;
+    private Double tickSize;
+    private Double stepSize;
 
     public BinanceService(EmailService emailService, BinanceConfig config) {
         this.emailService = emailService;
@@ -53,8 +57,106 @@ public class BinanceService {
         lastStockAccountBalance = updatedLastStockAccountBalance();
         actualTradePosition = updateActualTradePosition();
         stockData = updateStockData();
-        rollingVolatility = calculateRollingVolatility();
         openOrders = updateOpenOrders();
+        rollingVolatility = calculateRollingVolatility();
+        lastBuyPrice = updateLastBuyPrice();
+        lastSellPrice = updateLastSellPrice();
+        tickSize = getAssetTickSize();
+        stepSize = getAssetStepSize();
+    }
+
+    private ArrayList<Order> getOrdersHistory() {
+        // Obtém o histórico de ordens do par configurado
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("symbol", config.getOperationCode());
+        parameters.put("limit", 100);
+
+        String rawResponse = client.createTrade().getOrders(parameters);
+
+        if (rawResponse.startsWith("{")) {
+            JSONObject response = new JSONObject(rawResponse);
+
+            if (response.has("code") && response.has("msg")) {
+                throw new RuntimeException("Erro ao realizar request 'get orders': " + response);
+            }
+
+            throw new RuntimeException("Erro ao pegar histórico das orders. Resposta não reconhecida.");
+        } else {
+            JSONArray response = new JSONArray(rawResponse);
+
+            if (response.isEmpty()) {
+                return new ArrayList<Order>();
+            }
+
+            ArrayList<Order> orders = new ArrayList<>();
+
+            for (int i = 0; i < response.length(); i++) {
+                orders.add(new Order(response.getJSONObject(i)));
+            }
+
+            if (orders.isEmpty()) {
+                throw new RuntimeException("Erro ao pegar histórico das orders.");
+            }
+
+            return orders;
+        }
+    }
+
+    private Double updateLastOrderPrice(String side, String operationType) {
+        try {
+            ArrayList<Order> orderHistory = getOrdersHistory();
+
+            // Filtra as ordens com base no lado (SELL ou BUY) e status FILLED
+            List<Order> executedOrders = orderHistory.stream()
+                    .filter(order -> side.equals(order.getSide()) && "FILLED".equals(order.getStatus()))
+                    .toList();
+
+            if (!executedOrders.isEmpty()) {
+                // Ordena as ordens por tempo (timestamp) para obter a mais recente
+                Optional<Order> lastExecutedOrderOpt = executedOrders.stream()
+                        .max(Comparator.comparingLong(Order::getTime));
+
+                Order lastExecutedOrder = lastExecutedOrderOpt.get();
+
+                // Calcula o preço da última ordem executada
+                double lastOrderPrice = Double.parseDouble(lastExecutedOrder.getCumulativeQuoteQty()) /
+                        Double.parseDouble(lastExecutedOrder.getExecutedQty());
+
+                // Corrige o timestamp para exibição
+                String datetimeTransact = formatTimestamp(lastExecutedOrder.getTime());
+
+                LOGGER.info("Última ordem de {} executada para {}:", operationType, config.getOperationCode());
+                LOGGER.info(" | Data: {}", datetimeTransact);
+                LOGGER.info(" | Preço: {}", adjustToStep(lastOrderPrice, tickSize));
+                LOGGER.info(" | Quantidade: {}", adjustToStep(Double.parseDouble(lastExecutedOrder.getOrigQty()), stepSize));
+
+                return lastOrderPrice;
+            } else {
+                LOGGER.error("Não há ordens de {} executadas para {}", operationType, config.getOperationCode());
+                return 0.0;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao verificar a última ordem de " + operationType + " executada para " + config.getOperationCode(), e);
+        }
+    }
+
+    public Double updateLastSellPrice() {
+        return updateLastOrderPrice("SELL", "VENDA");
+    }
+
+    public Double updateLastBuyPrice() {
+        return updateLastOrderPrice("BUY", "COMPRA");
+    }
+
+    private String adjustToStep(double value, double step) {
+        double adjustedValue = Math.floor(value / step) * step;
+        return String.format("%.8f", adjustedValue);
+    }
+
+    private String formatTimestamp(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss dd-MM-yyyy");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return sdf.format(new Date(timestamp));
     }
 
     private AccountData updatedAccountData() {
@@ -148,12 +250,13 @@ public class BinanceService {
      * Verifica se há pelo menos uma fração mínima da moeda em questão na conta (step size)
      */
     private boolean updateActualTradePosition() {
-        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
-        Double stepSize = getAssetStepSize(symbolInfo);
+        Double stepSize = getAssetStepSize();
         return this.lastStockAccountBalance > stepSize;
     }
 
-    private Double getAssetStepSize(JSONObject symbolInfo) {
+    private Double getAssetStepSize() {
+        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
+
         JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
 
         // Extract LOT_SIZE and get stepSize using Streams
@@ -166,7 +269,9 @@ public class BinanceService {
         return stepSize.orElseThrow(() -> new RuntimeException("Step Size not found"));
     }
 
-    private Double getAssetTickSize(JSONObject symbolInfo) {
+    private Double getAssetTickSize() {
+        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
+
         JSONArray filters = symbolInfo.getJSONArray("symbols").getJSONObject(0).getJSONArray("filters");
 
         // Extract PRICE_FILTER and get tickSize using Streams
@@ -232,6 +337,40 @@ public class BinanceService {
         LOGGER.info(balanceAsset.toString());
     }
 
+    public boolean stopLossTrigger() {
+        double closePrice = stockData.getLast().getClosePrice();
+        double weightedPrice = stockData.get(stockData.size() - 2).getClosePrice(); // Preço ponderado pelo candle anterior
+        double stopLossPrice = lastBuyPrice * (1 - config.getStopLossPercentage());
+
+        LOGGER.info(" - Preço atual: {}", closePrice);
+        LOGGER.info(" - Preço mínimo para vender: {}", getMinimumPriceToSell());
+        LOGGER.info(" - Stop Loss em: {} ({}%)", stopLossPrice, (config.getStopLossPercentage()*100));
+
+        if (closePrice < stopLossPrice && weightedPrice < stopLossPrice && actualTradePosition) {
+            LOGGER.info("Ativando STOP LOSS...");
+            cancelAllOrders();
+
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Erro ao pausar a thread.", e);
+            }
+            
+            sellMarketOrder();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void sellMarketOrder() {
+    }
+
+    private Double getMinimumPriceToSell() {
+        return lastBuyPrice * (1 - config.getAcceptableLossPercentage());
+    }
+
     public void cancelAllOrders() {
         if (!openOrders.isEmpty()) {
             LOGGER.info("Cancelando todas as open orders...");
@@ -262,10 +401,8 @@ public class BinanceService {
     public void buyLimitedOrder() throws Exception {
         double price = 0.0; // Pode ser ajustado posteriormente
 
-        JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
-
-        double tickSizeValue = getAssetTickSize(symbolInfo);
-        double stepSizeValue = getAssetStepSize(symbolInfo);
+        double tickSizeValue = getAssetTickSize();
+        double stepSizeValue = getAssetStepSize();
 
         // Pega o valor do candle atual
         double closePrice = stockData.getLast().getClosePrice();
@@ -307,7 +444,7 @@ public class BinanceService {
             this.actualTradePosition = true;
 
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
-            logHelper.createLogOrder(response);
+            LOG_SERVICE.createLogOrder(response);
 
             // Envia e-mail avisando da ação realizada
             ArrayList<String> destinatarios = new ArrayList<>();
@@ -340,11 +477,8 @@ public class BinanceService {
         try {
             double price = 0.0; // Pode ser trocado depois
 
-            // Get symbol info to respect filters
-            JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
-
-            double tickSizeValue = getAssetTickSize(symbolInfo);
-            double stepSizeValue = getAssetStepSize(symbolInfo);
+            double tickSizeValue = getAssetTickSize();
+            double stepSizeValue = getAssetStepSize();
 
             // Pega o valor do candle atual
             double closePrice = stockData.getLast().getClosePrice();
@@ -387,7 +521,7 @@ public class BinanceService {
 
             actualTradePosition = false; // Update position to sold
             LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
-            logHelper.createLogOrder(response); // Create a log
+            LOG_SERVICE.createLogOrder(response); // Create a log
 
             // Envia e-mail avisando da ação realizada
             ArrayList<String> destinatarios = new ArrayList<>();
@@ -451,7 +585,7 @@ public class BinanceService {
                 .append("</head>")
                 .append("<body>")
                 .append("<div class=\"email-container\">")
-                .append("<h2>Ordem Enviada " + (type.trim().equalsIgnoreCase("BUY") ? "COMPRA":"VENDA") + "</h2>")
+                .append("<h2>Ordem Enviada " + (type.trim().equalsIgnoreCase("BUY") ? "COMPRA" : "VENDA") + "</h2>")
                 .append("<table>")
                 .append("<tr><th>Status</th><td>").append(status).append("</td></tr>")
                 .append("<tr><th>Side</th><td>").append(side).append("</td></tr>")
