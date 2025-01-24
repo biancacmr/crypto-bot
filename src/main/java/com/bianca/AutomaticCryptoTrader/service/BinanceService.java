@@ -42,8 +42,9 @@ public class BinanceService {
     private ArrayList<StockData> stockData;
     private Double lastStockAccountBalance;
     private AccountData accountData;
-    private Double lastBuyPrice;
-    private Double lastSellPrice;
+    private Double lastBuyPrice = 0.0;
+    private Double lastSellPrice = 0.0;
+    private Double partialQuantityDiscount = 0.0; // Valor que já foi executado e que será descontado da quantidade, caso uma ordem não seja completamente executada
     private Double tickSize;
     private Double stepSize;
 
@@ -353,7 +354,7 @@ public class BinanceService {
 
         if (closePrice < stopLossPrice && weightedPrice < stopLossPrice && actualTradePosition) {
             LOGGER.info("Ativando STOP LOSS...");
-            cancelAllOrders(tradeDecision);
+            cancelAllOrders();
 
             try {
                 Thread.sleep(2000);
@@ -412,9 +413,9 @@ public class BinanceService {
     }
 
     /**
-     * Cancela todas as ordens abertas de COMPRA e/ou VENDA, retornando a quantidade de ordens canceladas
+     * Cancela todas as ordens abertas de COMPRA e VENDA, retornando a quantidade de ordens canceladas
      */
-    public int cancelAllOrders(Boolean cancelBuyOrders) {
+    public void cancelAllOrders() {
         if (!openOrders.isEmpty()) {
             LOGGER.info("Cancelando todas as open orders...");
 
@@ -648,41 +649,103 @@ public class BinanceService {
         return htmlContent.toString();
     }
 
-    private Map<String, Object> getDefaultParameters() {
-        Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("recvWindow", "30000");
-        return parameters;
-    }
+    /**
+     * Verifica se há ordens de compra/venda abertas para o ativo configurado.
+     * Se houver:
+     * - Salva a quantidade já executada em partialQuantityDiscount.
+     * - Salva o maior preço parcialmente executado em lastBuyPrice.
+     *
+     * @return true se houver ordens abertas, false caso contrário.
+     */
+    public boolean hasOpenOrders(String side) {
+        try {
+            openOrders = updateOpenOrders();
 
-    public ArrayList<Order> getOpenOrders() {
-        return openOrders;
-    }
+            // Filtra as ordens de compra
+            List<Order> buyOrders = openOrders.stream()
+                    .filter(order -> side.equalsIgnoreCase(order.getSide()))
+                    .toList();
 
-    public boolean getLastTradeDecision() {
-        return lastTradeDecision;
-    }
+            if (!buyOrders.isEmpty()) {
+                partialQuantityDiscount = 0.0;
+                lastBuyPrice = 0.0;
 
-    public boolean getActualTradePosition() {
-        return actualTradePosition;
-    }
+                LOGGER.info("Ordens de compra do tipo {} abertas para {}:",
+                        side.equals("BUY") ? "COMPRA" : "VENDA",
+                        config.getOperationCode());
 
-    public Double getLastStockAccountBalance() {
-        return lastStockAccountBalance;
-    }
+                for (Order order : buyOrders) {
+                    double executedQty = Double.parseDouble(order.getExecutedQty()); // Quantidade já executada
+                    double price = Double.parseDouble(order.getPrice()); // Preço da ordem
 
-    public ArrayList<StockData> getStockData() {
-        return stockData;
-    }
+                    LOGGER.info(" - ID da Ordem: {}, Preço: {}, Qtd.: {}, Qtd. Executada: {}",
+                            order.getOrderId(), price, order.getOrigQty(), executedQty);
 
-    public AccountData getAccountData() {
-        return accountData;
-    }
+                    // Atualiza a quantidade parcial executada
+                    partialQuantityDiscount += executedQty;
 
-    public void setLastTradeDecision(Boolean lastTradeDecision) {
-        this.lastTradeDecision = lastTradeDecision;
-    }
+                    // Atualiza o maior preço parcialmente executado
+                    if (side.equalsIgnoreCase("BUY")) {
+                        if (executedQty > 0 && price > lastBuyPrice) {
+                            lastBuyPrice = price;
+                        }
+                    } else if (side.equalsIgnoreCase("SELL")) {
+                        if (executedQty > 0 && price > lastSellPrice) {
+                            lastSellPrice = price;
+                        }
+                    }
+                }
 
-    public ArrayList<Double> getRollingVolatility() {
-        return rollingVolatility;
+                    LOGGER.info(" - Quantidade parcial executada no total: {}", partialQuantityDiscount);
+                    LOGGER.info(" - Maior preço parcialmente executado: {}",
+                            side.equalsIgnoreCase("SELL") ? lastSellPrice : lastBuyPrice);
+                    return true;
+                } else{
+                    LOGGER.info(" - Não há ordens de compra abertas para {}.", config.getOperationCode());
+                    return false;
+                }
+
+            } catch(Exception e){
+                LOGGER.error("Erro ao verificar ordens abertas para " + config.getOperationCode() + ": " + e.getMessage());
+                throw new RuntimeException("Erro ao verificar ordens abertas.");
+            }
+        }
+
+        private Map<String, Object> getDefaultParameters () {
+            Map<String, Object> parameters = new LinkedHashMap<>();
+            parameters.put("recvWindow", "30000");
+            return parameters;
+        }
+
+        public ArrayList<Order> getOpenOrders () {
+            return openOrders;
+        }
+
+        public boolean getLastTradeDecision () {
+            return lastTradeDecision;
+        }
+
+        public boolean getActualTradePosition () {
+            return actualTradePosition;
+        }
+
+        public Double getLastStockAccountBalance () {
+            return lastStockAccountBalance;
+        }
+
+        public ArrayList<StockData> getStockData () {
+            return stockData;
+        }
+
+        public AccountData getAccountData () {
+            return accountData;
+        }
+
+        public void setLastTradeDecision (Boolean lastTradeDecision){
+            this.lastTradeDecision = lastTradeDecision;
+        }
+
+        public ArrayList<Double> getRollingVolatility () {
+            return rollingVolatility;
+        }
     }
-}
