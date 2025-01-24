@@ -1,5 +1,7 @@
-package com.bianca.AutomaticCryptoTrader.model;
+package com.bianca.AutomaticCryptoTrader.strategies;
 
+import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.slf4j.Logger;
@@ -9,6 +11,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class MovingAverageStrategy {
+    private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
+    private final BinanceConfig binanceConfig = new BinanceConfig();
     private final BinanceService binanceService;
     private final Logger LOGGER;
 
@@ -17,7 +21,7 @@ public class MovingAverageStrategy {
         this.LOGGER = logger;
     }
 
-    public MovingAverageResult executeMovingAverageTradeStrategy() {
+    public boolean getTradeDecision() {
         int fastWindow = 7;
         int slowWindow = 40;
 
@@ -29,10 +33,10 @@ public class MovingAverageStrategy {
                 .collect(Collectors.toList());
 
         // Calculate the fast moving average (short window)
-        List<Double> maFast = calculateMovingAverage(closePrices, fastWindow);
+        List<Double> maFast = movingAverageCalculator.calculateMovingAverage(closePrices, fastWindow);
 
         // Calculate the slow moving average (long window)
-        List<Double> maSlow = calculateMovingAverage(closePrices, slowWindow);
+        List<Double> maSlow = movingAverageCalculator.calculateMovingAverage(closePrices, slowWindow);
 
         // Get the last values of each moving average
         double lastMaFast = maFast.getLast();
@@ -42,27 +46,14 @@ public class MovingAverageStrategy {
         // Rápida > Lenta = COMPRAR | Lenta > Rápida = VENDER
         boolean tradeDecision = lastMaFast > lastMaSlow;
 
-        return new MovingAverageResult(tradeDecision, lastMaFast, lastMaSlow);
-    }
+        LOGGER.info("---------------------------------------");
+        LOGGER.info("Estratégia executada: Moving Average");
+        LOGGER.info("({})", binanceConfig.getOperationCode());
+        LOGGER.info(" | Última Média Rápida = {}", lastMaFast);
+        LOGGER.info(" | Última Média Lenta = {}", lastMaSlow);
+        LOGGER.info(" | Decisão = " + (tradeDecision ? "COMPRAR" : "VENDER"));
+        LOGGER.info("---------------------------------------");
 
-    private List<Double> calculateMovingAverage(List<Double> data, int windowSize) {
-        if (windowSize <= 0 || data == null || data.size() < windowSize) {
-            throw new IllegalArgumentException("Invalid window size or data list is too small.");
-        }
-
-        DescriptiveStatistics stats = new DescriptiveStatistics();
-        stats.setWindowSize(windowSize);
-
-        List<Double> movingAverages = new ArrayList<>();
-
-        // Add data points to the stats object and calculate the moving average
-        for (Double value : data) {
-            stats.addValue(value);
-            if (stats.getN() == windowSize) { // Ensure the window is full before adding averages
-                movingAverages.add(stats.getMean());
-            }
-        }
-
-        return movingAverages;
+        return tradeDecision;
     }
 }

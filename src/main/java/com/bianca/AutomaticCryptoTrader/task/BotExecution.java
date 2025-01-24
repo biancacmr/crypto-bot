@@ -1,13 +1,11 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
-import com.bianca.AutomaticCryptoTrader.model.MovingAverageResult;
-import com.bianca.AutomaticCryptoTrader.model.MovingAverageStrategy;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
+import com.bianca.AutomaticCryptoTrader.service.StrategyRunner;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,7 +40,6 @@ public class BotExecution {
         int delay = BASE_DELAY;
 
         try {
-
             LOGGER.info("---------------------------------------------");
             LOGGER.info("INIT AutomaticCryptoTrader...");
             LOGGER.info("---------------------------------------------");
@@ -62,19 +59,9 @@ public class BotExecution {
             }
 
             // Executar estratégias
-            MovingAverageStrategy movingAverageStrategy = new MovingAverageStrategy(binanceService, LOGGER);
-            MovingAverageResult movingAverageResult = movingAverageStrategy.executeMovingAverageTradeStrategy();
-            boolean tradeDecision = movingAverageResult.getTradeDecision();
+            StrategyRunner strategyRunner = new StrategyRunner(binanceService, LOGGER);
+            Boolean tradeDecision = strategyRunner.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
-
-            LOGGER.info("---------------------------------------");
-            LOGGER.info("Estratégia executada: Moving Average");
-            LOGGER.info("({})", binanceConfig.getOperationCode());
-            LOGGER.info(" | Última Média Rápida = " + movingAverageResult.getLastMaFast());
-            LOGGER.info(" | Última Média Lenta = " + movingAverageResult.getLastMaSlow());
-            LOGGER.info(" | Decisão = " + (tradeDecision ? "COMPRAR" : "VENDER"));
-            LOGGER.info("---------------------------------------");
-            LOGGER.info("Decisão Final: " + (tradeDecision ? "COMPRAR" : "VENDER"));
 
             /* Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
               Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo

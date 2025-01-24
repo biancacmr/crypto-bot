@@ -56,6 +56,9 @@ public class BinanceConfig {
     @Value("${binance.acceptableLossPercentage}")
     private Double acceptableLossPercentage;
 
+    @Value("${binance.fallbackActive}")
+    private boolean fallbackActive;
+
     public Double getAcceptableLossPercentage() {
         return acceptableLossPercentage/100;
     }
@@ -124,4 +127,7 @@ public class BinanceConfig {
         return volatilityFactor;
     }
 
+    public boolean isFallbackActive() {
+        return fallbackActive;
+    }
 }

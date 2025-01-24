@@ -8,6 +8,7 @@ import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
+import jakarta.mail.MessagingException;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -36,7 +37,7 @@ public class BinanceService {
 
     private ArrayList<Order> openOrders;
     private ArrayList<Double> rollingVolatility;
-    private boolean lastTradeDecision = false;
+    private Boolean lastTradeDecision = null;
     private boolean actualTradePosition;
     private ArrayList<StockData> stockData;
     private Double lastStockAccountBalance;
@@ -127,8 +128,8 @@ public class BinanceService {
 
                 LOGGER.info("Última ordem de {} executada para {}:", operationType, config.getOperationCode());
                 LOGGER.info(" | Data: {}", datetimeTransact);
-                LOGGER.info(" | Preço: {}", adjustToStep(lastOrderPrice, tickSize));
-                LOGGER.info(" | Quantidade: {}", adjustToStep(Double.parseDouble(lastExecutedOrder.getOrigQty()), stepSize));
+                LOGGER.info(" | Preço: {}", adjustToStepStr(lastOrderPrice, tickSize));
+                LOGGER.info(" | Quantidade: {}", adjustToStepStr(Double.parseDouble(lastExecutedOrder.getOrigQty()), stepSize));
 
                 return lastOrderPrice;
             } else {
@@ -148,9 +149,13 @@ public class BinanceService {
         return updateLastOrderPrice("BUY", "COMPRA");
     }
 
-    private String adjustToStep(double value, double step) {
+    private String adjustToStepStr(double value, double step) {
         double adjustedValue = Math.floor(value / step) * step;
         return String.format("%.8f", adjustedValue);
+    }
+
+    private Double adjustToStepDouble(double value, double step) {
+        return Math.floor(value / step) * step;
     }
 
     private String formatTimestamp(long timestamp) {
@@ -337,14 +342,14 @@ public class BinanceService {
         LOGGER.info(balanceAsset.toString());
     }
 
-    public boolean stopLossTrigger() {
+    public boolean stopLossTrigger() throws MessagingException {
         double closePrice = stockData.getLast().getClosePrice();
         double weightedPrice = stockData.get(stockData.size() - 2).getClosePrice(); // Preço ponderado pelo candle anterior
         double stopLossPrice = lastBuyPrice * (1 - config.getStopLossPercentage());
 
         LOGGER.info(" - Preço atual: {}", closePrice);
         LOGGER.info(" - Preço mínimo para vender: {}", getMinimumPriceToSell());
-        LOGGER.info(" - Stop Loss em: {} ({}%)", stopLossPrice, (config.getStopLossPercentage()*100));
+        LOGGER.info(" - Stop Loss em: {} ({}%)", stopLossPrice, (config.getStopLossPercentage() * 100));
 
         if (closePrice < stopLossPrice && weightedPrice < stopLossPrice && actualTradePosition) {
             LOGGER.info("Ativando STOP LOSS...");
@@ -356,7 +361,7 @@ public class BinanceService {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Erro ao pausar a thread.", e);
             }
-            
+
             sellMarketOrder();
             return true;
         }
@@ -364,7 +369,42 @@ public class BinanceService {
         return false;
     }
 
-    private void sellMarketOrder() {
+    private void sellMarketOrder() throws MessagingException {
+        try {
+            if (actualTradePosition) { // Se a posição for comprada
+                // Ajusta a quantidade para o stepSize
+                Double quantity = adjustToStepDouble(lastStockAccountBalance, stepSize);
+
+                Map<String, Object> parameters = new LinkedHashMap<>();
+                parameters.put("symbol", config.getOperationCode());
+                parameters.put("side", "SELL");
+                parameters.put("type", "MARKET");
+                parameters.put("quantity", quantity);
+
+                String rawResponse = client.createTrade().newOrder(parameters);
+                JSONObject response = new JSONObject(rawResponse);
+
+                if (response.has("code") && response.has("msg")) {
+                    throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
+                }
+
+                actualTradePosition = false; // Define posição atual como VENDIDO
+
+                LOGGER.info("Ordem MARKET SELL enviada com sucesso: ");
+                LOG_SERVICE.createLogOrder(response);
+
+                // Envia e-mail avisando da ação realizada
+                ArrayList<String> destinatarios = new ArrayList<>();
+                destinatarios.add(config.getEmailReceiver());
+                destinatarios.add("gabrielsilvabaptista@gmail.com");
+
+                emailService.sendEmail(destinatarios, "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
+                LOGGER.info("Email enviado.");
+            }
+        } catch (Exception e) {
+            LOGGER.error("Erro ao enviar ordem de mercado de venda: ", e);
+            throw e;
+        }
     }
 
     private Double getMinimumPriceToSell() {
@@ -635,7 +675,7 @@ public class BinanceService {
         return accountData;
     }
 
-    public void setLastTradeDecision(boolean lastTradeDecision) {
+    public void setLastTradeDecision(Boolean lastTradeDecision) {
         this.lastTradeDecision = lastTradeDecision;
     }
 
