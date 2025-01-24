@@ -353,7 +353,7 @@ public class BinanceService {
 
         if (closePrice < stopLossPrice && weightedPrice < stopLossPrice && actualTradePosition) {
             LOGGER.info("Ativando STOP LOSS...");
-            cancelAllOrders();
+            cancelAllOrders(tradeDecision);
 
             try {
                 Thread.sleep(2000);
@@ -411,7 +411,10 @@ public class BinanceService {
         return lastBuyPrice * (1 - config.getAcceptableLossPercentage());
     }
 
-    public void cancelAllOrders() {
+    /**
+     * Cancela todas as ordens abertas de COMPRA e/ou VENDA, retornando a quantidade de ordens canceladas
+     */
+    public int cancelAllOrders(Boolean cancelBuyOrders) {
         if (!openOrders.isEmpty()) {
             LOGGER.info("Cancelando todas as open orders...");
 

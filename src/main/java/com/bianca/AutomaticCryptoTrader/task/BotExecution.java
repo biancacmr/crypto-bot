@@ -63,45 +63,91 @@ public class BotExecution {
             Boolean tradeDecision = strategyRunner.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
 
-            /* Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
-              Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo
-              Demais casos, nada acontece **/
-            if (binanceService.getLastTradeDecision() && !binanceService.getActualTradePosition()) {
-                LOGGER.info("Ação final: COMPRAR");
+            if (tradeDecision != null) {
+                // Verifica e cancela ordens anteriores abertas
+                int cancelledOrders = binanceService.cancelAllOrders(tradeDecision);
 
-                binanceService.printStock(binanceConfig.getStockCode());
-                binanceService.printStock("USDT");
-                binanceService.cancelAllOrders();
-
-                Thread.sleep(2000);
-                binanceService.buyLimitedOrder();
-                Thread.sleep(2000);
-
-                binanceService.updateAllData();
-                binanceService.printStock(binanceConfig.getStockCode());
-                binanceService.printStock("USDT");
-
-                delay *= 2;
-            } else if (!binanceService.getLastTradeDecision() && binanceService.getActualTradePosition()) {
-                LOGGER.info("Ação final: VENDER");
-
-                binanceService.printStock(binanceConfig.getStockCode());
-                binanceService.printStock("USDT");
-                binanceService.cancelAllOrders();
-
-                Thread.sleep(2000);
-                binanceService.sellLimitedOrder();
-                Thread.sleep(2000);
-
-                binanceService.updateAllData();
-                binanceService.printStock(binanceConfig.getStockCode());
-                binanceService.printStock("USDT");
-
-                delay *= 2;
-            } else {
-                LOGGER.info("Ação final: MANTER POSIÇÃO");
-
+                if (cancelledOrders > 0) Thread.sleep(2000);
             }
+
+//
+//        # ---------
+//                    print('\n--------------')
+//            print(f'🔎 Decisão Final: {"Comprar" if self.last_trade_decision == True else "Vender" if self.last_trade_decision == False else "Inconclusiva"}')
+//
+//        # ---------
+//        # Se a posição for vendida (false) e a decisão for de compra (true), compra o ativo
+//        # Se a posição for comprada (true) e a decisão for de venda (false), vende o ativo
+//            if self.actual_trade_position == False and self.last_trade_decision == True:
+//            print('🏁 Ação final: Comprar')
+//            print('--------------')
+//            print(f'\nCarteira em {self.stock_code} [ANTES]:')
+//            self.printStock()
+//            self.buyLimitedOrder()
+//            time.sleep(2)
+//            self.updateAllData()
+//            print(f'Carteira em {self.stock_code} [DEPOIS]:')
+//            self.printStock()
+//            self.time_to_sleep = self.delay_after_order
+//
+//            elif self.actual_trade_position == True and self.last_trade_decision == False:
+//            print('🏁 Ação final: Vender')
+//            print('--------------')
+//            print(f'\nCarteira em {self.stock_code} [ANTES]:')
+//            self.printStock()
+//            self.sellLimitedOrder()
+//            time.sleep(2)
+//            self.updateAllData()
+//            print(f'\nCarteira em {self.stock_code} [DEPOIS]:')
+//            self.printStock()
+//            self.time_to_sleep = self.delay_after_order
+//
+//        else:
+//            print(f'🏁 Ação final: Manter posição ({"Comprado" if self.actual_trade_position else "Vendido"})')
+//            print('--------------')
+//            self.time_to_sleep = self.time_to_trade
+//
+
+
+//            /* Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
+//              Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo
+//              Demais casos, nada acontece **/
+//            if (binanceService.getLastTradeDecision() && !binanceService.getActualTradePosition()) {
+//                LOGGER.info("Ação final: COMPRAR");
+//
+//                binanceService.printStock(binanceConfig.getStockCode());
+//                binanceService.printStock("USDT");
+//                binanceService.cancelAllOrders();
+//
+//                Thread.sleep(2000);
+//                binanceService.buyLimitedOrder();
+//                Thread.sleep(2000);
+//
+//                binanceService.updateAllData();
+//                binanceService.printStock(binanceConfig.getStockCode());
+//                binanceService.printStock("USDT");
+//
+//                delay *= 2;
+//            } else if (!binanceService.getLastTradeDecision() && binanceService.getActualTradePosition()) {
+//                LOGGER.info("Ação final: VENDER");
+//
+//                binanceService.printStock(binanceConfig.getStockCode());
+//                binanceService.printStock("USDT");
+//                binanceService.cancelAllOrders();
+//
+//                Thread.sleep(2000);
+//                binanceService.sellLimitedOrder();
+//                Thread.sleep(2000);
+//
+//                binanceService.updateAllData();
+//                binanceService.printStock(binanceConfig.getStockCode());
+//                binanceService.printStock("USDT");
+//
+//                delay *= 2;
+//            } else {
+//                LOGGER.info("Ação final: MANTER POSIÇÃO");
+//
+//            }
 
             LOGGER.info("---------------------------------------------");
             scheduleTask(delay);
