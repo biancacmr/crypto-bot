@@ -3,12 +3,9 @@ package com.bianca.AutomaticCryptoTrader.service;
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 @Service
@@ -20,10 +17,7 @@ public class EmailService {
         this.config = config;
     }
 
-    @Autowired
-    private JavaMailSender mailSender;
-
-    public void sendEmail(ArrayList<String> receivers, String subject, String body) throws MessagingException {
+    public void sendEmail(List<String> receivers, String subject, String body) throws MessagingException {
         Properties prop = new Properties();
         prop.put("mail.smtp.auth", true);
         prop.put("mail.smtp.starttls.enable", "true");

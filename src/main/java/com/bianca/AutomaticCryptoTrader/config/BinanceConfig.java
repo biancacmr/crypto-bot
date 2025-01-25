@@ -3,6 +3,10 @@ package com.bianca.AutomaticCryptoTrader.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 public class BinanceConfig {
     @Value("${binance.apiKey}")
@@ -91,8 +95,12 @@ public class BinanceConfig {
         return emailHost;
     }
 
-    public String getEmailReceiver() {
-        return emailReceiver;
+    public List<String> getEmailReceiverList() {
+        List<String> emailList = new ArrayList<>();
+        if (emailReceiver != null && !emailReceiver.isEmpty()) {
+            emailList = Arrays.asList(emailReceiver.split(","));
+        }
+        return emailList;
     }
 
     public String getApiKey() {

@@ -5,6 +5,7 @@ import com.bianca.AutomaticCryptoTrader.model.AccountData;
 import com.bianca.AutomaticCryptoTrader.model.Balance;
 import com.bianca.AutomaticCryptoTrader.model.Order;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
+import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageCalculator;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
@@ -31,6 +32,7 @@ import java.math.RoundingMode;
 public class BinanceService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
     private static final LogService LOG_SERVICE = new LogService(LOGGER);
+    private static final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
 
     @Autowired
     private final EmailService emailService;
@@ -70,8 +72,10 @@ public class BinanceService {
         stepSize = getAssetStepSize();
     }
 
+    /**
+     * Retorna o histórico de ordens do par analisado
+     */
     private ArrayList<Order> getOrdersHistory() {
-        // Obtém o histórico de ordens do par configurado
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", config.getOperationCode());
         parameters.put("limit", 100);
@@ -107,6 +111,9 @@ public class BinanceService {
         }
     }
 
+    /**
+     *  Salva o preço da última ordem de COMPRA ou VENDA realizada
+     */
     private Double updateLastOrderPrice(String side, String operationType) {
         try {
             ArrayList<Order> orderHistory = getOrdersHistory();
@@ -188,6 +195,10 @@ public class BinanceService {
         return sdf.format(new Date(timestamp));
     }
 
+    /**
+     * Atualiza os dados da conta, como os dados da carteira (balance).
+     * Para mais detalhes visualizar a classe AccountData.
+     */
     private AccountData updatedAccountData() {
         AccountData updatedAccountData = new AccountData();
 
@@ -203,6 +214,9 @@ public class BinanceService {
         return updatedAccountData;
     }
 
+    /**
+     * Recupera e salva as ordens que ainda estão abertas na conta
+     */
     private ArrayList<Order> updateOpenOrders() {
         Map<String, Object> parameters = getDefaultParameters();
         parameters.put("symbol", config.getOperationCode());
@@ -238,6 +252,9 @@ public class BinanceService {
         }
     }
 
+    /**
+     * Atualiza as informações do ativo analisado, retornando os dados das candles
+     */
     private ArrayList<StockData> updateStockData() {
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", config.getOperationCode());
@@ -276,13 +293,17 @@ public class BinanceService {
     }
 
     /**
-     * Verifica se há pelo menos uma fração mínima da moeda em questão na conta (step size)
+     * Verifica se há pelo menos uma fração mínima da moeda em questão na conta (step size).
+     * Caso haja, define a posição atual como COMPRADA, se não define como VENDIDA.
      */
     private boolean updateActualTradePosition() {
         Double stepSize = getAssetStepSize();
         return this.lastStockAccountBalance > stepSize;
     }
 
+    /**
+     * Recupera o Step Size do ativo (fração mínima obtível do ativo).
+     */
     private Double getAssetStepSize() {
         JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
 
@@ -302,6 +323,9 @@ public class BinanceService {
         return stepSizeVal;
     }
 
+    /**
+     * Recupera o Tick Size do ativo (fração mínima do preço de venda ou compra de um ativo).
+     */
     private Double getAssetTickSize() {
         JSONObject symbolInfo = getSymbolInfo(config.getOperationCode());
 
@@ -336,6 +360,10 @@ public class BinanceService {
         throw new RuntimeException("No free balance for chosen asset.");
     }
 
+    /**
+     *  Calcula a Moving Volatily do ativo de acordo com o candle period configurado
+     *  e windowSize (por padrão 40 dias).
+     */
     public ArrayList<Double> calculateRollingVolatility() {
         List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
         int windowSize = 40;
@@ -370,6 +398,14 @@ public class BinanceService {
         LOGGER.info(balanceAsset.toString());
     }
 
+    /**
+     * Ativa o mecanismo de stop-loss com base no preço atual, no preço ponderado e na porcentagem de stop-loss.
+     * Este metodo verifica se o preço atual da ação e o preço ponderado estão abaixo do preço calculado
+     * de stop-loss. Caso as condições sejam atendidas e a posição atual de trade esteja ativa, ele cancela
+     * todas as ordens existentes, aguarda um pequeno intervalo e executa uma ordem de venda a mercado.
+     *
+     * @return {@code true} se o stop-loss for ativado e a venda for executada, ou {@code false} caso contrário.
+     */
     public boolean stopLossTrigger() throws MessagingException {
         double closePrice = stockData.getLast().getClosePrice();
         double weightedPrice = stockData.get(stockData.size() - 2).getClosePrice(); // Preço ponderado pelo candle anterior
@@ -422,11 +458,7 @@ public class BinanceService {
                 LOG_SERVICE.createLogOrder(response);
 
                 // Envia e-mail avisando da ação realizada
-                ArrayList<String> destinatarios = new ArrayList<>();
-                destinatarios.add(config.getEmailReceiver());
-                destinatarios.add("gabrielsilvabaptista@gmail.com");
-
-                emailService.sendEmail(destinatarios, "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
+                emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
                 LOGGER.info("Email enviado.");
             } else {
                 LOGGER.info("ERRO ao vender: Posição já vendida.");
@@ -522,11 +554,7 @@ public class BinanceService {
             LOG_SERVICE.createLogOrder(response);
 
             // Envia e-mail avisando da ação realizada
-            ArrayList<String> destinatarios = new ArrayList<>();
-            destinatarios.add(config.getEmailReceiver());
-            destinatarios.add("gabrielsilvabaptista@gmail.com");
-
-            emailService.sendEmail(destinatarios, "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
+            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
@@ -548,16 +576,31 @@ public class BinanceService {
         return response;
     }
 
+    /**
+     * Cria uma ordem de venda por um preço mínimo (Limited Order),
+     * utilizando o RSI e o Volume Médio para calcular o valor.
+     */
     public void sellLimitedOrder() throws Exception {
         try {
+            // Pega o valor do candle atual
+            double closePrice = stockData.getLast().getClosePrice();
+
+            // Volume atual do mercado
+            double volume = stockData.getLast().getVolume();
+
+            // Calcula o último volume médio
+            List<Double> volumes = stockData.stream().map(StockData::getVolume).toList();
+            double volumeMedio = movingAverageCalculator.calculateMovingAverage(volumes, 20).getLast();
+
+            // Calcula o RSI
+
+            double limitPrice;
+
             double price = 0.0; // Pode ser trocado depois
 
             double tickSizeValue = getAssetTickSize();
             double stepSizeValue = getAssetStepSize();
 
-            // Pega o valor do candle atual
-            double closePrice = stockData.getLast().getClosePrice();
-            double limitPrice;
 
             if (price == 0) {
                 // Definir o preço limite para a ordem
@@ -599,11 +642,7 @@ public class BinanceService {
             LOG_SERVICE.createLogOrder(response); // Create a log
 
             // Envia e-mail avisando da ação realizada
-            ArrayList<String> destinatarios = new ArrayList<>();
-            destinatarios.add(config.getEmailReceiver());
-            destinatarios.add("gabrielsilvabaptista@gmail.com");
-
-            emailService.sendEmail(destinatarios, "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
+            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
             LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
