@@ -6,6 +6,7 @@ import com.bianca.AutomaticCryptoTrader.model.Balance;
 import com.bianca.AutomaticCryptoTrader.model.Order;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageCalculator;
+import com.bianca.AutomaticCryptoTrader.strategies.RSI;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
@@ -62,14 +63,14 @@ public class BinanceService {
     public void updateAllData() {
         accountData = updatedAccountData();
         lastStockAccountBalance = updatedLastStockAccountBalance();
+        tickSize = getAssetTickSize();
+        stepSize = getAssetStepSize();
         actualTradePosition = updateActualTradePosition();
         stockData = updateStockData();
         openOrders = updateOpenOrders();
         rollingVolatility = calculateRollingVolatility();
         lastBuyPrice = updateLastBuyPrice();
         lastSellPrice = updateLastSellPrice();
-        tickSize = getAssetTickSize();
-        stepSize = getAssetStepSize();
     }
 
     /**
@@ -112,7 +113,7 @@ public class BinanceService {
     }
 
     /**
-     *  Salva o preço da última ordem de COMPRA ou VENDA realizada
+     * Salva o preço da última ordem de COMPRA ou VENDA realizada
      */
     private Double updateLastOrderPrice(String side, String operationType) {
         try {
@@ -144,7 +145,7 @@ public class BinanceService {
 
                 return lastOrderPrice;
             } else {
-                LOGGER.error("Não há ordens de {} executadas para {}", operationType, config.getOperationCode());
+                LOGGER.error("Não há ordens de {} executadas para {}.", operationType, config.getOperationCode());
                 return 0.0;
             }
         } catch (Exception e) {
@@ -174,6 +175,22 @@ public class BinanceService {
 
         return result.doubleValue();
     }
+
+    /*  Ajusta o valor para o múltiplo mais próximo do passo definido, lidando com problemas de precisão
+    e garantindo que o resultado não seja retornado em notação científica. **/
+    public static Double adjustToTickDouble(double value, double tickSize) {
+        // Determinar o número de casas decimais do step
+        int decimalPlaces = tickSize < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(tickSize))) : 0;
+
+        // Ajustar o valor ao step usando floor
+        double adjustedValue = Math.floor(value / tickSize) * tickSize;
+
+        // Garantir que o resultado tenha a mesma precisão do step
+        BigDecimal result = BigDecimal.valueOf(adjustedValue).setScale(decimalPlaces, RoundingMode.HALF_UP);
+
+        return result.doubleValue();
+    }
+
 
     public static String adjustToStepStr(double value, double step) {
         // Determinar o número de casas decimais do step
@@ -298,7 +315,7 @@ public class BinanceService {
      */
     private boolean updateActualTradePosition() {
         Double stepSize = getAssetStepSize();
-        return this.lastStockAccountBalance > stepSize;
+        return this.lastStockAccountBalance >= stepSize;
     }
 
     /**
@@ -361,8 +378,8 @@ public class BinanceService {
     }
 
     /**
-     *  Calcula a Moving Volatily do ativo de acordo com o candle period configurado
-     *  e windowSize (por padrão 40 dias).
+     * Calcula a Moving Volatily do ativo de acordo com o candle period configurado
+     * e windowSize (por padrão 40 dias).
      */
     public ArrayList<Double> calculateRollingVolatility() {
         List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
@@ -505,29 +522,41 @@ public class BinanceService {
         }
     }
 
+    /**
+     * Cria uma ordem de compra por um preço mínimo (Limited Order),
+     * utilizando o RSI e o Volume Médio para calcular o valor.
+     */
     public void buyLimitedOrder() throws Exception {
+        double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
+        double volume = stockData.getLast().getVolume(); // Volume atual do mercado
+        double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
+        double rsi = calculateLastRSIValue(); // Calcula o RSI
+
         double price = 0.0; // Pode ser ajustado posteriormente
-
-        double tickSizeValue = getAssetTickSize();
-        double stepSizeValue = getAssetStepSize();
-
-        // Pega o valor do candle atual
-        double closePrice = stockData.getLast().getClosePrice();
         double limitPrice = 0.0;
 
         if (price == 0.0) {
-            limitPrice = closePrice + (config.getVolatilityFactor() * rollingVolatility.getLast());
+            if (rsi < 30) {
+                // Mercado sobrevendido, tenta comprar um pouco mais abaixo
+                limitPrice = closePrice - (0.002 * closePrice);
+            } else if (volume < averageVolume) {
+                // Volume baixo (mercado lateral), ajuste pequeno acima
+                limitPrice = closePrice + (0.002 * closePrice);
+            } else {
+                // Volume alto (mercado volátil), ajuste maior acima (caso suba muito rápido)
+                limitPrice = closePrice + (0.005 * closePrice);
+            }
         } else {
             limitPrice = price;
         }
 
         // Ajustar o preço limite para o tickSize permitido
-        limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
+        limitPrice = adjustToTickDouble(limitPrice, tickSize);
 
         // Ajustar a quantidade para o stepSize permitido
-        double quantity = Math.floor(config.getTradedQuantity() / stepSizeValue) * stepSizeValue;
+        double quantity = adjustToStepDouble(config.getTradedQuantity() - partialQuantityDiscount, stepSize);
 
-        LOGGER.info("Enviando ordem limitada de compra para {}", config.getOperationCode());
+        LOGGER.info("Enviando ordem limitada de COMPRA para {}", config.getOperationCode());
         LOGGER.info(" - Quantidade: {}", quantity);
         LOGGER.info(" - Close price: {}", closePrice);
         LOGGER.info(" - Preço Limite: {}", limitPrice);
@@ -582,53 +611,58 @@ public class BinanceService {
      */
     public void sellLimitedOrder() throws Exception {
         try {
-            // Pega o valor do candle atual
-            double closePrice = stockData.getLast().getClosePrice();
-
-            // Volume atual do mercado
-            double volume = stockData.getLast().getVolume();
-
-            // Calcula o último volume médio
-            List<Double> volumes = stockData.stream().map(StockData::getVolume).toList();
-            double volumeMedio = movingAverageCalculator.calculateMovingAverage(volumes, 20).getLast();
-
-            // Calcula o RSI
-
-            double limitPrice;
+            double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
+            double volume = stockData.getLast().getVolume(); // Volume atual do mercado
+            double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
+            double rsi = calculateLastRSIValue(); // Calcula o RSI
 
             double price = 0.0; // Pode ser trocado depois
-
-            double tickSizeValue = getAssetTickSize();
-            double stepSizeValue = getAssetStepSize();
-
+            double limitPrice;
 
             if (price == 0) {
-                // Definir o preço limite para a ordem
-                limitPrice = closePrice - (config.getVolatilityFactor() * rollingVolatility.getLast());
+                if (rsi > 70.0) {
+                    // Mercado sobrecomprado, tenta vender um pouco acima
+                    limitPrice = closePrice + (0.002 * closePrice);
+                } else if (volume < averageVolume) {
+                    // Volume baixo (mercado lateral), ajuste pequeno abaixo
+                    limitPrice = closePrice - (0.002 * closePrice);
+                } else {
+                    // Volume alto (mercado volátil), ajuste maior abaixo (caso caia muito rápido)
+                    limitPrice = closePrice - (0.005 * closePrice);
+                }
+
+                // Garantindo que o preço limite seja maior que o mínimo aceitável
+                if (limitPrice < (lastBuyPrice * (1 - config.getAcceptableLossPercentage()))) {
+                    LOGGER.info("Ajuste de venda aceitável ({}%):", config.getAcceptableLossPercentage() * 100);
+                    LOGGER.info(" - De: {}", limitPrice);
+                    limitPrice = getMinimumPriceToSell();
+                    LOGGER.info(" - Para: {}", limitPrice);
+                }
             } else {
                 limitPrice = price;
             }
 
             // Ajustar o preço limite para o tickSize permitido
-            limitPrice = Math.floor(limitPrice / tickSizeValue) * tickSizeValue;
+            limitPrice = adjustToTickDouble(limitPrice, tickSize);
 
             // Ajustar a quantidade para o stepSize permitido
-            double quantity = Math.floor(lastStockAccountBalance / stepSizeValue) * stepSizeValue;
+            double quantity = adjustToStepDouble(lastStockAccountBalance, stepSize);
 
             // Log information
             LOGGER.info("Enviando ordem limitada de venda para " + config.getOperationCode() + ":");
+            LOGGER.info(" - RSI: " + rsi);
             LOGGER.info(" - Quantidade: " + quantity);
             LOGGER.info(" - Close Price: " + closePrice);
             LOGGER.info(" - Preço Limite: " + limitPrice);
 
-            // Enviando ordem de compra
+            // Enviando ordem de venda
             Map<String, Object> parameters = new LinkedHashMap<>();
             parameters.put("symbol", config.getOperationCode());
             parameters.put("side", "SELL");
             parameters.put("type", "LIMIT");
             parameters.put("timeInForce", "GTC");
             parameters.put("quantity", quantity);
-            parameters.put("price", Math.round(limitPrice * 100.0) / 100.0);
+            parameters.put("price", limitPrice);
 
             String rawResponse = client.createTrade().newOrder(parameters);
             JSONObject response = new JSONObject(rawResponse);
@@ -649,6 +683,17 @@ public class BinanceService {
             throw e;
         }
 
+    }
+
+    private double calculateLastAverageVolume() {
+        List<Double> volumes = stockData.stream().map(StockData::getVolume).toList();
+        return movingAverageCalculator.calculateMovingAverage(volumes, 20).getLast();
+    }
+
+    private double calculateLastRSIValue() {
+        List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
+        RSI rsiCalculator = new RSI();
+        return (double) rsiCalculator.calculateRSI(closePrices, 14, true);
     }
 
     private String createBodyOrder(JSONObject order) {
@@ -771,7 +816,9 @@ public class BinanceService {
                         side.equalsIgnoreCase("SELL") ? lastSellPrice : lastBuyPrice);
                 return true;
             } else {
-                LOGGER.info(" - Não há ordens de compra abertas para {}.", config.getOperationCode());
+                LOGGER.info(" - Não há ordens de {} abertas para {}.",
+                        side.equalsIgnoreCase("SELL") ? "VENDA" : "COMPRA",
+                        config.getOperationCode());
                 return false;
             }
 

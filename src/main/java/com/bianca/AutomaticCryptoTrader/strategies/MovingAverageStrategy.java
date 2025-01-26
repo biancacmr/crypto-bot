@@ -12,13 +12,14 @@ import java.util.stream.Collectors;
 
 public class MovingAverageStrategy {
     private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
-    private final BinanceConfig binanceConfig = new BinanceConfig();
+    private final BinanceConfig binanceConfig;
     private final BinanceService binanceService;
     private final Logger LOGGER;
 
-    public MovingAverageStrategy(BinanceService binanceService, Logger logger) {
+    public MovingAverageStrategy(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig) {
         this.binanceService = binanceService;
         this.LOGGER = logger;
+        this.binanceConfig = binanceConfig;
     }
 
     public boolean getTradeDecision() {
@@ -46,13 +47,13 @@ public class MovingAverageStrategy {
         // Rápida > Lenta = COMPRAR | Lenta > Rápida = VENDER
         boolean tradeDecision = lastMaFast > lastMaSlow;
 
-        LOGGER.info("---------------------------------------");
+        LOGGER.info("\n---------------------------------------\n");
         LOGGER.info("Estratégia executada: Moving Average");
         LOGGER.info("({})", binanceConfig.getOperationCode());
         LOGGER.info(" | Última Média Rápida = {}", lastMaFast);
         LOGGER.info(" | Última Média Lenta = {}", lastMaSlow);
         LOGGER.info(" | Decisão = " + (tradeDecision ? "COMPRAR" : "VENDER"));
-        LOGGER.info("---------------------------------------");
+        LOGGER.info("\n---------------------------------------\n");
 
         return tradeDecision;
     }

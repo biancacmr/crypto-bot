@@ -5,6 +5,10 @@ import java.util.List;
 
 public class RSI {
 
+    public RSI() {
+
+    }
+
     /**
      * Calcula o índice de força relativa (RSI) para uma série de preços.
      *
@@ -13,7 +17,7 @@ public class RSI {
      * @param lastOnly Indica se deve retornar apenas o último valor do RSI.
      * @return O RSI calculado, como um valor único (se lastOnly for true) ou uma lista de valores (se lastOnly for false).
      */
-    public static Object calculateRSI(List<Double> series, int window, boolean lastOnly) {
+    public Object calculateRSI(List<Double> series, int window, boolean lastOnly) {
         if (series.size() < window) {
             throw new IllegalArgumentException("A série de preços deve ter pelo menos o tamanho da janela.");
         }
@@ -79,19 +83,5 @@ public class RSI {
         }
 
         return ema;
-    }
-
-    public static void main(String[] args) {
-        List<Double> prices = List.of(44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28);
-        int window = 14;
-        boolean lastOnly = false;
-
-        Object result = calculateRSI(prices, window, lastOnly);
-
-        if (lastOnly) {
-            System.out.println("Último RSI: " + result);
-        } else {
-            System.out.println("RSI: " + result);
-        }
     }
 }

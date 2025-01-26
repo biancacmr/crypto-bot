@@ -41,12 +41,12 @@ public class BotExecution {
 
         try {
             LOGGER.info("---------------------------------------------");
-            LOGGER.info("INIT AutomaticCryptoTrader...");
-            LOGGER.info("---------------------------------------------");
+            LOGGER.info("Robô iniciando...");
+            LOGGER.info("---------------------------------------------\n");
 
             binanceService.updateAllData();
 
-            LOGGER.info("---------------------------------------------");
+            LOGGER.info("\n---------------------------------------------\n");
             LOGGER.info("Executado {}", getCurrentDateTime());
             LOGGER.info("Posição atual: {}", binanceService.getActualTradePosition() ? "COMPRADO" : "VENDIDO");
             LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
@@ -59,13 +59,14 @@ public class BotExecution {
             }
 
             // Executar estratégias
-            StrategyRunner strategyRunner = new StrategyRunner(binanceService, LOGGER);
+            StrategyRunner strategyRunner = new StrategyRunner(binanceService, LOGGER, binanceConfig);
             Boolean tradeDecision = strategyRunner.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
 
             if (tradeDecision != null) {
                 // Cancela as ordens abertas, se houver alguma
                 if (binanceService.hasOpenOrders("BUY") || binanceService.hasOpenOrders("SELL")) {
+                    LOGGER.info("\n---------------------------------------------\n");
                     binanceService.cancelAllOrders();
                     Thread.sleep(2000);
                 }
@@ -75,7 +76,7 @@ public class BotExecution {
                   Demais casos, nada acontece **/
                 if (binanceService.getLastTradeDecision() && !binanceService.getActualTradePosition()) {
                     LOGGER.info("Ação final: COMPRAR");
-                    LOGGER.info("---------------------------------------------");
+                    LOGGER.info("\n---------------------------------------------\n");
 
                     LOGGER.info("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
                     binanceService.printStock(binanceConfig.getStockCode());
@@ -93,7 +94,7 @@ public class BotExecution {
                     delay *= 2;
                 } else if (!binanceService.getLastTradeDecision() && binanceService.getActualTradePosition()) {
                     LOGGER.info("Ação final: VENDER");
-                    LOGGER.info("---------------------------------------------");
+                    LOGGER.info("\n---------------------------------------------\n");
 
                     LOGGER.info("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
                     binanceService.printStock(binanceConfig.getStockCode());
@@ -115,11 +116,11 @@ public class BotExecution {
                     LOGGER.info("Ação final: MANTER POSIÇÃO");
                 }
             } else {
-                LOGGER.info("---------------------------------------------");
+                LOGGER.info("\n---------------------------------------------\n");
                 LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
             }
 
-            LOGGER.info("---------------------------------------------");
+            LOGGER.info("\n---------------------------------------------\n");
             scheduleTask(delay);
         } catch (Exception e) {
             LOGGER.error("Erro ao executar tarefa agendada: ", e);

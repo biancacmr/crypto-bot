@@ -11,13 +11,14 @@ import java.util.stream.Collectors;
 
 public class MovingAverageAntecipationStrategy {
     private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
-    private final BinanceConfig binanceConfig = new BinanceConfig();
     private final BinanceService binanceService;
+    private final BinanceConfig binanceConfig;
     private final Logger LOGGER;
 
-    public MovingAverageAntecipationStrategy(BinanceService binanceService, Logger logger) {
+    public MovingAverageAntecipationStrategy(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig) {
         this.binanceService = binanceService;
         this.LOGGER = logger;
+        this.binanceConfig = binanceConfig;
     }
 
     public Boolean getTradeDecision() {
@@ -41,7 +42,7 @@ public class MovingAverageAntecipationStrategy {
         double lastMaFast = maFast.getLast(); // Última Média Rápida
         double prevMaFast = maFast.get(maFast.size() - 3); // Penúltima Média Rápida
         double lastMaSlow = maSlow.getLast(); // Última Média Lenta
-        double prevMaSlow = maSlow.get(maFast.size() - 3); // Penúltima Média Lenta
+        double prevMaSlow = maSlow.get(maSlow.size() - 3); // Penúltima Média Lenta
 
         // Última volatilidade
         ArrayList<Double> volatilitys = binanceService.getRollingVolatility();
@@ -58,7 +59,7 @@ public class MovingAverageAntecipationStrategy {
         Boolean maTradeDecision = null;
 
         // Toma a decisão com base em volatilidade + gradiente
-        if (currentDifference < lastVolatility * binanceConfig.getVolatilityFactor()) {
+        if (currentDifference < (lastVolatility * binanceConfig.getVolatilityFactor())) {
 
             // Comprar se a média rápida está convergindo para cruzar de baixo para cima
             if (fastGradient > 0 && fastGradient > slowGradient) {
@@ -71,7 +72,9 @@ public class MovingAverageAntecipationStrategy {
             }
         }
 
-        LOGGER.info("---------------------------------------");
+        LOGGER.info(binanceConfig.getVolatilityFactor().toString());
+
+        LOGGER.info("\n---------------------------------------------\n");
         LOGGER.info("Estratégia executada: Moving Average Antecipation");
         LOGGER.info("({})", binanceConfig.getOperationCode());
         LOGGER.info(" | Última Média Rápida: {}", lastMaFast);
@@ -81,9 +84,9 @@ public class MovingAverageAntecipationStrategy {
         LOGGER.info(" | Diferença para antecipação: {}", binanceConfig.getVolatilityFactor() * lastVolatility);
         LOGGER.info(" | Gradiente Rápido: {} ({})", fastGradient, (fastGradient > 0 ? "SUBINDO" : "DESCENDO"));
         LOGGER.info(" | Gradiente Lento: {} ({})", slowGradient, (slowGradient > 0 ? "SUBINDO" : "DESCENDO"));
-        LOGGER.info(" | Decisão: {}}",
+        LOGGER.info(" | Decisão: {}",
                 maTradeDecision == null ? "NENHUMA" : maTradeDecision ? "COMPRAR" : "VENDER");
-        LOGGER.info("---------------------------------------");
+        LOGGER.info("\n---------------------------------------------\n");
 
         return maTradeDecision;
     }

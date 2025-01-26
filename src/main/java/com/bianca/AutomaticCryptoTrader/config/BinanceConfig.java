@@ -2,6 +2,8 @@ package com.bianca.AutomaticCryptoTrader.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,7 +35,16 @@ public class BinanceConfig {
     @Value("${binance.volatilityFactor}")
     private Double volatilityFactor;
 
-    @Value("${binance.emailReceiver}")
+    @Value("${binance.stopLossPercentage}")
+    private Double stopLossPercentage;
+
+    @Value("${binance.acceptableLossPercentage}")
+    private Double acceptableLossPercentage;
+
+    @Value("${binance.fallbackActive}")
+    private boolean fallbackActive;
+
+    @Value("${receiversList}")
     private String emailReceiver;
 
     @Value("${spring.mail.host}")
@@ -47,53 +58,6 @@ public class BinanceConfig {
 
     @Value("${spring.mail.password}")
     private String emailPassword;
-
-    @Value("${binance.maxBuyPrice}")
-    private String maxBuyPrice;
-
-    @Value("${binance.buyCurrency}")
-    private String buyCurrency;
-
-    @Value("${binance.stopLossPercentage}")
-    private Double stopLossPercentage;
-
-    @Value("${binance.acceptableLossPercentage}")
-    private Double acceptableLossPercentage;
-
-    @Value("${binance.fallbackActive}")
-    private boolean fallbackActive;
-
-    public Double getAcceptableLossPercentage() {
-        return acceptableLossPercentage/100;
-    }
-
-    public Double getStopLossPercentage() {
-        return stopLossPercentage/100;
-    }
-
-    public String getMaxBuyPrice() {
-        return maxBuyPrice;
-    }
-
-    public String getBuyCurrency() {
-        return buyCurrency;
-    }
-
-    public String getEmailPassword() {
-        return emailPassword;
-    }
-
-    public String getEmailUsername() {
-        return emailUsername;
-    }
-
-    public String getEmailPort() {
-        return emailPort;
-    }
-
-    public String getEmailHost() {
-        return emailHost;
-    }
 
     public List<String> getEmailReceiverList() {
         List<String> emailList = new ArrayList<>();
@@ -119,6 +83,10 @@ public class BinanceConfig {
         return stockCode;
     }
 
+    public String getOperationCode() {
+        return operationCode;
+    }
+
     public String getCandlePeriod() {
         return candlePeriod;
     }
@@ -127,12 +95,36 @@ public class BinanceConfig {
         return tradedQuantity;
     }
 
-    public String getOperationCode() {
-        return operationCode;
-    }
-
     public Double getVolatilityFactor() {
         return volatilityFactor;
+    }
+
+    public String getEmailReceiver() {
+        return emailReceiver;
+    }
+
+    public String getEmailHost() {
+        return emailHost;
+    }
+
+    public String getEmailPort() {
+        return emailPort;
+    }
+
+    public String getEmailUsername() {
+        return emailUsername;
+    }
+
+    public String getEmailPassword() {
+        return emailPassword;
+    }
+
+    public Double getStopLossPercentage() {
+        return stopLossPercentage/100;
+    }
+
+    public Double getAcceptableLossPercentage() {
+        return acceptableLossPercentage/100;
     }
 
     public boolean isFallbackActive() {
