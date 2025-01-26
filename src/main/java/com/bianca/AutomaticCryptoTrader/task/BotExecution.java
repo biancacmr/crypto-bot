@@ -82,7 +82,8 @@ public class BotExecution {
                     binanceService.printStock(binanceConfig.getStockCode());
 
                     // Realiza a compra
-                    binanceService.buyLimitedOrder();
+//                    binanceService.buyLimitedOrder();
+                    binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
                     Thread.sleep(2000);
 
                     // Atualiza os dados da conta

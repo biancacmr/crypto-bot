@@ -59,6 +59,9 @@ public class BinanceConfig {
     @Value("${spring.mail.password}")
     private String emailPassword;
 
+    @Value("${binance.maxBuyValue}")
+    private Double maxBuyValue;
+
     public List<String> getEmailReceiverList() {
         List<String> emailList = new ArrayList<>();
         if (emailReceiver != null && !emailReceiver.isEmpty()) {
@@ -129,5 +132,9 @@ public class BinanceConfig {
 
     public boolean isFallbackActive() {
         return fallbackActive;
+    }
+
+    public double getMaxBuyValue() {
+        return maxBuyValue;
     }
 }

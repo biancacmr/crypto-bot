@@ -523,40 +523,33 @@ public class BinanceService {
     }
 
     /**
-     * Cria uma ordem de compra por um preço mínimo (Limited Order),
-     * utilizando o RSI e o Volume Médio para calcular o valor.
+     * Cria uma ordem de compra, seja baseada em quantidade ou em valor.
+     *
+     * @param quantity Valor da quantidade (se for uma compra por quantidade).
+     * @param purchaseValue Valor em USDT (se for uma compra baseada em valor).
+     * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public void buyLimitedOrder() throws Exception {
+    public void createLimitedOrder(Double quantity, Double purchaseValue) throws Exception {
         double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
         double volume = stockData.getLast().getVolume(); // Volume atual do mercado
         double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
         double rsi = calculateLastRSIValue(); // Calcula o RSI
 
-        double price = 0.0; // Pode ser ajustado posteriormente
-        double limitPrice = 0.0;
+        // Determina o preço limite com base no RSI e volume
+        double limitPrice = calculateLimitPrice(closePrice, volume, averageVolume, rsi);
 
-        if (price == 0.0) {
-            if (rsi < 30) {
-                // Mercado sobrevendido, tenta comprar um pouco mais abaixo
-                limitPrice = closePrice - (0.002 * closePrice);
-            } else if (volume < averageVolume) {
-                // Volume baixo (mercado lateral), ajuste pequeno acima
-                limitPrice = closePrice + (0.002 * closePrice);
-            } else {
-                // Volume alto (mercado volátil), ajuste maior acima (caso suba muito rápido)
-                limitPrice = closePrice + (0.005 * closePrice);
-            }
-        } else {
-            limitPrice = price;
+        // Calcula a quantidade com base no valor, se necessário
+        if (purchaseValue != null) {
+            quantity = purchaseValue / limitPrice;
         }
 
-        // Ajustar o preço limite para o tickSize permitido
+        // Ajusta o preço limite e a quantidade para os tamanhos permitidos
         limitPrice = adjustToTickDouble(limitPrice, tickSize);
-
-        // Ajustar a quantidade para o stepSize permitido
-        double quantity = adjustToStepDouble(config.getTradedQuantity() - partialQuantityDiscount, stepSize);
+        quantity = adjustToStepDouble(quantity, stepSize);
 
         LOGGER.info("Enviando ordem limitada de COMPRA para {}", config.getOperationCode());
+        LOGGER.info(" - Tipo de Ordem: {}", purchaseValue != null ? "Por Valor" : "Por Quantidade");
+        if (purchaseValue != null) LOGGER.info(" - Valor Total (USDT): {}", purchaseValue);
         LOGGER.info(" - Quantidade: {}", quantity);
         LOGGER.info(" - Close price: {}", closePrice);
         LOGGER.info(" - Preço Limite: {}", limitPrice);
@@ -568,7 +561,7 @@ public class BinanceService {
             parameters.put("type", "LIMIT");
             parameters.put("timeInForce", "GTC");
             parameters.put("quantity", quantity);
-            parameters.put("price", Math.round(limitPrice * 100.0) / 100.0);
+            parameters.put("price", limitPrice);
 
             String rawResponse = client.createTrade().newOrder(parameters);
             JSONObject response = new JSONObject(rawResponse);
@@ -589,6 +582,47 @@ public class BinanceService {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
             throw e;
         }
+    }
+
+    /**
+     * Calcula o preço limite com base nas condições de mercado.
+     *
+     * @param closePrice Preço de fechamento atual.
+     * @param volume Volume atual do mercado.
+     * @param averageVolume Volume médio calculado.
+     * @param rsi Valor do RSI.
+     * @return Preço limite calculado.
+     */
+    private double calculateLimitPrice(double closePrice, double volume, double averageVolume, double rsi) {
+        if (rsi < 30) {
+            // Mercado sobrevendido, tenta comprar um pouco mais abaixo
+            return closePrice - (0.002 * closePrice);
+        } else if (volume < averageVolume) {
+            // Volume baixo (mercado lateral), ajuste pequeno acima
+            return closePrice + (0.002 * closePrice);
+        } else {
+            // Volume alto (mercado volátil), ajuste maior acima
+            return closePrice + (0.005 * closePrice);
+        }
+    }
+
+    /**
+     * Cria uma ordem de compra baseada em quantidade.
+     *
+     * @throws Exception Em caso de erro ao enviar a ordem.
+     */
+    public void buyLimitedOrder() throws Exception {
+        createLimitedOrder(config.getTradedQuantity() - partialQuantityDiscount, null);
+    }
+
+    /**
+     * Cria uma ordem de compra baseada em valor.
+     *
+     * @param purchaseValue Valor para a compra.
+     * @throws Exception Em caso de erro ao enviar a ordem.
+     */
+    public void buyLimitedOrderByValue(double purchaseValue) throws Exception {
+        createLimitedOrder(null, purchaseValue);
     }
 
     public JSONObject getSymbolInfo(String symbol) {
@@ -676,7 +710,7 @@ public class BinanceService {
             LOG_SERVICE.createLogOrder(response); // Create a log
 
             // Envia e-mail avisando da ação realizada
-            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda Limitada Executada", createBodyOrder(response));
+            emailService.sendEmailOrder(config.getEmailReceiverList(), response);
             LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
@@ -694,74 +728,6 @@ public class BinanceService {
         List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
         RSI rsiCalculator = new RSI();
         return (double) rsiCalculator.calculateRSI(closePrices, 14, true);
-    }
-
-    private String createBodyOrder(JSONObject order) {
-        StringBuilder htmlContent = new StringBuilder();
-
-        // Extracting necessary information
-        String side = order.getString("side");
-        String type = order.getString("type");
-        double quantity = order.getDouble("executedQty");
-        String asset = order.getString("symbol");
-        double totalValue = order.getDouble("cummulativeQuoteQty");
-        long timestamp = order.getLong("transactTime");
-        String status = order.getString("status");
-
-        // Handling optional fields
-        String pricePerUnit = "-";
-        String currency = "-";
-
-        if (order.has("fills") && !order.getJSONArray("fills").isEmpty()) {
-            JSONObject fill = order.getJSONArray("fills").getJSONObject(0);
-            pricePerUnit = fill.optString("price", "-");
-            currency = fill.optString("commissionAsset", "-");
-        }
-
-        // Convert timestamp to human-readable date/time
-        LocalDateTime dateTimeTransact = Instant.ofEpochMilli(timestamp)
-                .atOffset(ZoneOffset.UTC)
-                .toLocalDateTime();
-        String formattedDate = dateTimeTransact.format(DateTimeFormatter.ofPattern("HH:mm:ss yyyy-MM-dd"));
-
-        htmlContent.append("<!DOCTYPE html>")
-                .append("<html lang=\"en\">")
-                .append("<head>")
-                .append("<meta charset=\"UTF-8\">")
-                .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">")
-                .append("<title>Ordem Enviada</title>")
-                .append("<style>")
-                .append("body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }")
-                .append(".email-container { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }")
-                .append("h2 { color: #333; }")
-                .append("table { width: 100%; margin-top: 20px; border-collapse: collapse; }")
-                .append("table, th, td { border: 1px solid #ddd; }")
-                .append("th, td { padding: 12px; text-align: left; }")
-                .append("th { background-color: #f4f4f4; color: #333; }")
-                .append("td { background-color: #fafafa; }")
-                .append(".divider { margin-top: 20px; border-top: 2px solid #ddd; }")
-                .append("</style>")
-                .append("</head>")
-                .append("<body>")
-                .append("<div class=\"email-container\">")
-                .append("<h2>Ordem Enviada " + (type.trim().equalsIgnoreCase("BUY") ? "COMPRA" : "VENDA") + "</h2>")
-                .append("<table>")
-                .append("<tr><th>Status</th><td>").append(status).append("</td></tr>")
-                .append("<tr><th>Side</th><td>").append(side).append("</td></tr>")
-                .append("<tr><th>Ativo</th><td>").append(asset).append("</td></tr>")
-                .append("<tr><th>Quantidade</th><td>").append(quantity).append("</td></tr>")
-                .append("<tr><th>Valor na Venda</th><td>").append(pricePerUnit).append("</td></tr>")
-                .append("<tr><th>Moeda</th><td>").append(currency).append("</td></tr>")
-                .append("<tr><th>Valor em ").append(currency).append("</th><td>").append(totalValue).append("</td></tr>")
-                .append("<tr><th>Tipo</th><td>").append(type).append("</td></tr>")
-                .append("<tr><th>Data/Hora</th><td>").append(formattedDate).append("</td></tr>")
-                .append("</table>")
-                .append("<div class=\"divider\"></div>")
-                .append("</div>")
-                .append("</body>")
-                .append("</html>");
-
-        return htmlContent.toString();
     }
 
     /**
