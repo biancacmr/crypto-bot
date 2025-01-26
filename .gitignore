@@ -39,3 +39,4 @@ src/main/resources/binanceApi.properties
 *.log
 *.log
 /logs
+*.properties
