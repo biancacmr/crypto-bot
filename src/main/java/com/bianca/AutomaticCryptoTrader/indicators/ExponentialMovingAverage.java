@@ -1,4 +1,4 @@
-package com.bianca.AutomaticCryptoTrader.strategies;
+package com.bianca.AutomaticCryptoTrader.indicators;
 
 public class ExponentialMovingAverage {
     private double alpha;

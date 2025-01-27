@@ -1,12 +1,9 @@
 package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
-import com.bianca.AutomaticCryptoTrader.model.AccountData;
-import com.bianca.AutomaticCryptoTrader.model.Balance;
-import com.bianca.AutomaticCryptoTrader.model.Order;
-import com.bianca.AutomaticCryptoTrader.model.StockData;
-import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageCalculator;
-import com.bianca.AutomaticCryptoTrader.strategies.RSI;
+import com.bianca.AutomaticCryptoTrader.model.*;
+import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
+import com.bianca.AutomaticCryptoTrader.indicators.RSI;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
@@ -20,10 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import java.math.BigDecimal;
@@ -113,9 +106,9 @@ public class BinanceService {
     }
 
     /**
-     * Salva o preço da última ordem de COMPRA ou VENDA realizada
+     * Obtém os dados da última ordem executada com base no lado (SELL ou BUY) e status FILLED.
      */
-    private Double updateLastOrderPrice(String side, String operationType) {
+    public Optional<Order> getLastExecutedOrder(String side) {
         try {
             ArrayList<Order> orderHistory = getOrdersHistory();
 
@@ -124,11 +117,23 @@ public class BinanceService {
                     .filter(order -> side.equals(order.getSide()) && "FILLED".equals(order.getStatus()))
                     .toList();
 
-            if (!executedOrders.isEmpty()) {
-                // Ordena as ordens por tempo (timestamp) para obter a mais recente
-                Optional<Order> lastExecutedOrderOpt = executedOrders.stream()
-                        .max(Comparator.comparingLong(Order::getTime));
+            // Retorna a ordem mais recente (se existir)
+            return executedOrders.stream()
+                    .max(Comparator.comparingLong(Order::getTime));
+        } catch (Exception e) {
+            LOGGER.error("Erro ao obter a última ordem executada para o lado {}.", side, e);
+            return Optional.empty();
+        }
+    }
 
+    /**
+     * Salva o preço da última ordem de COMPRA ou VENDA realizada
+     */
+    private Double updateLastOrderPrice(String side, String operationType) {
+        try {
+            Optional<Order> lastExecutedOrderOpt = getLastExecutedOrder(side);
+
+            if (lastExecutedOrderOpt.isPresent()) {
                 Order lastExecutedOrder = lastExecutedOrderOpt.get();
 
                 // Calcula o preço da última ordem executada
@@ -140,8 +145,8 @@ public class BinanceService {
 
                 LOGGER.info("Última ordem de {} executada para {}:", operationType, config.getOperationCode());
                 LOGGER.info(" | Data: {}", datetimeTransact);
-                LOGGER.info(" | Preço: {}", adjustToStepStr(lastOrderPrice, tickSize));
-                LOGGER.info(" | Quantidade: {}", adjustToStepStr(Double.parseDouble(lastExecutedOrder.getOrigQty()), stepSize));
+                LOGGER.info(" | Preço: {}", adjustToStepStr(lastOrderPrice));
+                LOGGER.info(" | Quantidade: {}", adjustToStepStr(Double.parseDouble(lastExecutedOrder.getOrigQty())));
 
                 return lastOrderPrice;
             } else {
@@ -192,12 +197,12 @@ public class BinanceService {
     }
 
 
-    public static String adjustToStepStr(double value, double step) {
+    public String adjustToStepStr(double value) {
         // Determinar o número de casas decimais do step
-        int decimalPlaces = step < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(step))) : 0;
+        int decimalPlaces = stepSize < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(stepSize))) : 0;
 
         // Ajustar o valor ao step usando floor
-        double adjustedValue = Math.floor(value / step) * step;
+        double adjustedValue = Math.floor(value / stepSize) * stepSize;
 
         // Garantir que o resultado tenha a mesma precisão do step
         BigDecimal result = BigDecimal.valueOf(adjustedValue).setScale(decimalPlaces, RoundingMode.HALF_UP);
@@ -206,7 +211,7 @@ public class BinanceService {
         return result.toPlainString();
     }
 
-    private String formatTimestamp(long timestamp) {
+    public String formatTimestamp(long timestamp) {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss dd-MM-yyyy");
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return sdf.format(new Date(timestamp));
@@ -475,8 +480,8 @@ public class BinanceService {
                 LOG_SERVICE.createLogOrder(response);
 
                 // Envia e-mail avisando da ação realizada
-                emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
-                LOGGER.info("Email enviado.");
+//                emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
+//                LOGGER.info("Email enviado.");
             } else {
                 LOGGER.info("ERRO ao vender: Posição já vendida.");
             }
@@ -525,11 +530,12 @@ public class BinanceService {
     /**
      * Cria uma ordem de compra, seja baseada em quantidade ou em valor.
      *
-     * @param quantity Valor da quantidade (se for uma compra por quantidade).
+     * @param quantity      Valor da quantidade (se for uma compra por quantidade).
      * @param purchaseValue Valor em USDT (se for uma compra baseada em valor).
+     * @return
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public void createLimitedOrder(Double quantity, Double purchaseValue) throws Exception {
+    public OrderResponseFull createLimitedOrder(Double quantity, Double purchaseValue) throws Exception {
         double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
         double volume = stockData.getLast().getVolume(); // Volume atual do mercado
         double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
@@ -575,9 +581,11 @@ public class BinanceService {
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
             LOG_SERVICE.createLogOrder(response);
 
+            return new OrderResponseFull(response);
+
             // Envia e-mail avisando da ação realizada
-            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
-            LOGGER.info("Email enviado.");
+//            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
+//            LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
             throw e;
@@ -611,18 +619,19 @@ public class BinanceService {
      *
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public void buyLimitedOrder() throws Exception {
-        createLimitedOrder(config.getTradedQuantity() - partialQuantityDiscount, null);
+    public OrderResponseFull buyLimitedOrder() throws Exception {
+        return createLimitedOrder(config.getTradedQuantity() - partialQuantityDiscount, null);
     }
 
     /**
      * Cria uma ordem de compra baseada em valor.
      *
      * @param purchaseValue Valor para a compra.
+     * @return
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public void buyLimitedOrderByValue(double purchaseValue) throws Exception {
-        createLimitedOrder(null, purchaseValue);
+    public OrderResponseFull buyLimitedOrderByValue(double purchaseValue) throws Exception {
+        return createLimitedOrder(null, purchaseValue);
     }
 
     public JSONObject getSymbolInfo(String symbol) {
@@ -705,12 +714,14 @@ public class BinanceService {
                 throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
             }
 
+            OrderResponseFull orderResponseFull = new OrderResponseFull(response);
+
             actualTradePosition = false; // Update position to sold
             LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
             LOG_SERVICE.createLogOrder(response); // Create a log
 
             // Envia e-mail avisando da ação realizada
-            emailService.sendEmailOrder(config.getEmailReceiverList(), response);
+            emailService.sendEmailOrder(config.getEmailReceiverList(), orderResponseFull);
             LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);

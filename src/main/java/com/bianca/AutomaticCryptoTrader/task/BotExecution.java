@@ -1,11 +1,15 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
-import com.bianca.AutomaticCryptoTrader.service.StrategyRunner;
+import com.bianca.AutomaticCryptoTrader.service.EmailService;
+import com.bianca.AutomaticCryptoTrader.indicators.IndicatorsCalculator;
+import com.bianca.AutomaticCryptoTrader.service.StrategiesService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -21,6 +25,10 @@ public class BotExecution {
     private static final int BASE_DELAY = 15;
     private final BinanceService binanceService;
     private final BinanceConfig binanceConfig;
+    private final IndicatorsCalculator indicatorsCalculator;
+
+    @Autowired
+    private final EmailService emailService;
 
     @PostConstruct
     public void initialize() {
@@ -31,9 +39,11 @@ public class BotExecution {
         scheduler.schedule(this::execute, delay, TimeUnit.MINUTES);
     }
 
-    public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig) {
+    public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsCalculator indicatorsCalculator, EmailService emailService) {
         this.binanceService = binanceService;
         this.binanceConfig = binanceConfig;
+        this.indicatorsCalculator = indicatorsCalculator;
+        this.emailService = emailService;
     }
 
     public void execute() {
@@ -58,9 +68,12 @@ public class BotExecution {
                 scheduleTask(delay);
             }
 
+            // Calcular indicadores
+            indicatorsCalculator.calculateAllIndicators(binanceService.getStockData());
+
             // Executar estratégias
-            StrategyRunner strategyRunner = new StrategyRunner(binanceService, LOGGER, binanceConfig);
-            Boolean tradeDecision = strategyRunner.getFinalDecision();
+            StrategiesService strategiesService = new StrategiesService(binanceService, LOGGER, binanceConfig, indicatorsCalculator);
+            Boolean tradeDecision = strategiesService.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
 
             if (tradeDecision != null) {
@@ -82,8 +95,9 @@ public class BotExecution {
                     binanceService.printStock(binanceConfig.getStockCode());
 
                     // Realiza a compra
-//                    binanceService.buyLimitedOrder();
-                    binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
+//                   binanceService.buyLimitedOrder();
+                    OrderResponseFull orderResponseFull = binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
+                    emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
                     Thread.sleep(2000);
 
                     // Atualiza os dados da conta

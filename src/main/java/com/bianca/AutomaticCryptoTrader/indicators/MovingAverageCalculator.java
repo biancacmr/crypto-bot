@@ -1,4 +1,4 @@
-package com.bianca.AutomaticCryptoTrader.strategies;
+package com.bianca.AutomaticCryptoTrader.indicators;
 
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 

@@ -1,16 +1,17 @@
 package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.IndicatorsCalculator;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageAntecipationStrategy;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageStrategy;
 import org.slf4j.Logger;
 
-public class StrategyRunner {
+public class StrategiesService {
     private final BinanceConfig binanceConfig;
     private final BinanceService binanceService;
     private final Logger LOGGER;
 
-    public StrategyRunner(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig) {
+    public StrategiesService(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig, IndicatorsCalculator indicatorsCalculator) {
         this.binanceService = binanceService;
         this.LOGGER = logger;
         this.binanceConfig = binanceConfig;

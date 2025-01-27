@@ -1,4 +1,4 @@
-package com.bianca.AutomaticCryptoTrader.strategies;
+package com.bianca.AutomaticCryptoTrader.indicators;
 
 import java.util.ArrayList;
 import java.util.List;
