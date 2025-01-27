@@ -1,6 +1,7 @@
 package com.bianca.AutomaticCryptoTrader.strategies;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
@@ -13,35 +14,19 @@ import java.util.stream.Collectors;
 public class MovingAverageStrategy {
     private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
     private final BinanceConfig binanceConfig;
-    private final BinanceService binanceService;
     private final Logger LOGGER;
+    private final Indicators indicators;
 
-    public MovingAverageStrategy(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig) {
-        this.binanceService = binanceService;
+    public MovingAverageStrategy(Logger logger, BinanceConfig binanceConfig, Indicators indicators) {
         this.LOGGER = logger;
         this.binanceConfig = binanceConfig;
+        this.indicators = indicators;
     }
 
     public boolean getTradeDecision() {
-        int fastWindow = 7;
-        int slowWindow = 40;
-
-        ArrayList<StockData> stockData = binanceService.getStockData();
-
-        // Get the close prices
-        List<Double> closePrices = stockData.stream()
-                .map(StockData::getClosePrice)
-                .collect(Collectors.toList());
-
-        // Calculate the fast moving average (short window)
-        List<Double> maFast = movingAverageCalculator.calculateMovingAverage(closePrices, fastWindow);
-
-        // Calculate the slow moving average (long window)
-        List<Double> maSlow = movingAverageCalculator.calculateMovingAverage(closePrices, slowWindow);
-
         // Get the last values of each moving average
-        double lastMaFast = maFast.getLast();
-        double lastMaSlow = maSlow.getLast();
+        double lastMaFast = indicators.getMaFast().getLast(); // Última Média Rápida
+        double lastMaSlow = indicators.getMaSlow().getLast();
 
         // Determine trade decision
         // Rápida > Lenta = COMPRAR | Lenta > Rápida = VENDER

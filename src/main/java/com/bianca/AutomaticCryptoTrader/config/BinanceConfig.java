@@ -123,11 +123,11 @@ public class BinanceConfig {
     }
 
     public Double getStopLossPercentage() {
-        return stopLossPercentage/100;
+        return stopLossPercentage / 100;
     }
 
     public Double getAcceptableLossPercentage() {
-        return acceptableLossPercentage/100;
+        return acceptableLossPercentage / 100;
     }
 
     public boolean isFallbackActive() {
@@ -136,5 +136,21 @@ public class BinanceConfig {
 
     public double getMaxBuyValue() {
         return maxBuyValue;
+    }
+
+    public int getMaFastWindow() {
+        return 7;
+    }
+
+    public int getMaSlowWindow() {
+        return 40;
+    }
+
+    public int getRSIWindow() {
+        return 14;
+    }
+
+    public int getVolatilityWindow() {
+        return 40;
     }
 }

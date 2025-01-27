@@ -20,10 +20,11 @@ import java.util.Properties;
 @Service
 public class EmailService {
 
-    private final BinanceConfig config;
-
     @Autowired
     private final BinanceService binanceService;
+
+    @Autowired
+    private final BinanceConfig config;
 
     public EmailService(BinanceConfig config, BinanceService binanceService) {
         this.config = config;
@@ -181,8 +182,23 @@ public class EmailService {
     }
 
     private String montaHtmlDadosIndicadores() {
-        // TODO:: implementar
-        return null;
+        StringBuilder html = new StringBuilder();
+        html.append("<h2>📊 Indicadores no momento da operação </h2>")
+                .append("<table>")
+                .append("<tr><th>MA ("+config.getMaFastWindow()+")</th><td>")
+                .append(datetimeTransact)
+                .append("</td></tr>")
+                .append("<tr><th>MA ("+config.getMaSlowWindow()+")</th><td>")
+                .append(binanceService.adjustToStepStr(quantity))
+                .append("</td></tr>")
+                .append("<tr><th>Valor em USDT</th><td>")
+                .append(binanceService.adjustToStepStr(valueInUSDT))
+                .append("</td></tr>")
+                .append("<tr><th>Valor na Compra</th><td>")
+                .append(binanceService.adjustToStepStr(totalValue))
+                .append("</td></tr>")
+                .append("</table>");
+        return html.toString();
     }
 
     private String getOrderEmailSubject(OrderResponseFull order) {

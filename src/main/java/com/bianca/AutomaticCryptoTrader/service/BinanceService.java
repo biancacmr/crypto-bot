@@ -1,14 +1,13 @@
 package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.*;
 import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
-import com.bianca.AutomaticCryptoTrader.indicators.RSI;
 import com.bianca.AutomaticCryptoTrader.task.BotExecution;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
 import jakarta.mail.MessagingException;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -33,6 +32,7 @@ public class BinanceService {
 
     private final BinanceConfig config;
     private final SpotClient client;
+    private Indicators indicators;
 
     private ArrayList<Order> openOrders;
     private ArrayList<Double> rollingVolatility;
@@ -382,29 +382,6 @@ public class BinanceService {
         throw new RuntimeException("No free balance for chosen asset.");
     }
 
-    /**
-     * Calcula a Moving Volatily do ativo de acordo com o candle period configurado
-     * e windowSize (por padrão 40 dias).
-     */
-    public ArrayList<Double> calculateRollingVolatility() {
-        List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
-        int windowSize = 40;
-
-        DescriptiveStatistics stats = new DescriptiveStatistics();
-        stats.setWindowSize(windowSize);
-
-        ArrayList<Double> rollingStds = new ArrayList<>();
-
-        for (Double price : closePrices) {
-            stats.addValue(price);
-            if (stats.getN() == windowSize) {
-                rollingStds.add(stats.getStandardDeviation());
-            }
-        }
-
-        return rollingStds;
-    }
-
     public void printStock(String assetStockCode) {
         ArrayList<Balance> balances = accountData.getBalances();
 
@@ -539,7 +516,7 @@ public class BinanceService {
         double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
         double volume = stockData.getLast().getVolume(); // Volume atual do mercado
         double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
-        double rsi = calculateLastRSIValue(); // Calcula o RSI
+        double rsi = indicators.getRsi().getLast();
 
         // Determina o preço limite com base no RSI e volume
         double limitPrice = calculateLimitPrice(closePrice, volume, averageVolume, rsi);
@@ -657,7 +634,7 @@ public class BinanceService {
             double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
             double volume = stockData.getLast().getVolume(); // Volume atual do mercado
             double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
-            double rsi = calculateLastRSIValue(); // Calcula o RSI
+            double rsi = indicators.getRsi().getLast();
 
             double price = 0.0; // Pode ser trocado depois
             double limitPrice;
@@ -733,12 +710,6 @@ public class BinanceService {
     private double calculateLastAverageVolume() {
         List<Double> volumes = stockData.stream().map(StockData::getVolume).toList();
         return movingAverageCalculator.calculateMovingAverage(volumes, 20).getLast();
-    }
-
-    private double calculateLastRSIValue() {
-        List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
-        RSI rsiCalculator = new RSI();
-        return (double) rsiCalculator.calculateRSI(closePrices, 14, true);
     }
 
     /**
@@ -841,5 +812,9 @@ public class BinanceService {
 
     public ArrayList<Double> getRollingVolatility() {
         return rollingVolatility;
+    }
+
+    public void setIndicators(Indicators indicators) {
+        this.indicators = indicators;
     }
 }

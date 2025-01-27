@@ -1,6 +1,7 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import com.bianca.AutomaticCryptoTrader.service.EmailService;
@@ -30,6 +31,13 @@ public class BotExecution {
     @Autowired
     private final EmailService emailService;
 
+    public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsCalculator indicatorsCalculator, EmailService emailService) {
+        this.binanceService = binanceService;
+        this.binanceConfig = binanceConfig;
+        this.indicatorsCalculator = indicatorsCalculator;
+        this.emailService = emailService;
+    }
+
     @PostConstruct
     public void initialize() {
         scheduleTask(0);
@@ -37,13 +45,6 @@ public class BotExecution {
 
     private void scheduleTask(int delay) {
         scheduler.schedule(this::execute, delay, TimeUnit.MINUTES);
-    }
-
-    public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsCalculator indicatorsCalculator, EmailService emailService) {
-        this.binanceService = binanceService;
-        this.binanceConfig = binanceConfig;
-        this.indicatorsCalculator = indicatorsCalculator;
-        this.emailService = emailService;
     }
 
     public void execute() {
@@ -69,10 +70,11 @@ public class BotExecution {
             }
 
             // Calcular indicadores
-            indicatorsCalculator.calculateAllIndicators(binanceService.getStockData());
+            Indicators indicators = indicatorsCalculator.calculate(binanceService.getStockData());
+            binanceService.setIndicators(indicators);
 
             // Executar estratégias
-            StrategiesService strategiesService = new StrategiesService(binanceService, LOGGER, binanceConfig, indicatorsCalculator);
+            StrategiesService strategiesService = new StrategiesService(LOGGER, binanceConfig, indicators);
             Boolean tradeDecision = strategiesService.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
 

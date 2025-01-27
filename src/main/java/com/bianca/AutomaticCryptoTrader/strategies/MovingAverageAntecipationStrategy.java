@@ -1,6 +1,7 @@
 package com.bianca.AutomaticCryptoTrader.strategies;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
@@ -12,42 +13,25 @@ import java.util.stream.Collectors;
 
 public class MovingAverageAntecipationStrategy {
     private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
-    private final BinanceService binanceService;
     private final BinanceConfig binanceConfig;
     private final Logger LOGGER;
+    private final Indicators indicators;
 
-    public MovingAverageAntecipationStrategy(BinanceService binanceService, Logger logger, BinanceConfig binanceConfig) {
-        this.binanceService = binanceService;
+    public MovingAverageAntecipationStrategy(Logger logger, BinanceConfig binanceConfig, Indicators indicators) {
         this.LOGGER = logger;
         this.binanceConfig = binanceConfig;
+        this.indicators = indicators;
     }
 
     public Boolean getTradeDecision() {
-        int fastWindow = 7;
-        int slowWindow = 40;
-
-        ArrayList<StockData> stockData = binanceService.getStockData();
-
-        // Get the close prices
-        List<Double> closePrices = stockData.stream()
-                .map(StockData::getClosePrice)
-                .collect(Collectors.toList());
-
-        // Calculate the fast moving average (short window)
-        List<Double> maFast = movingAverageCalculator.calculateMovingAverage(closePrices, fastWindow);
-
-        // Calculate the slow moving average (long window)
-        List<Double> maSlow = movingAverageCalculator.calculateMovingAverage(closePrices, slowWindow);
-
         // Pega os indicadores
-        double lastMaFast = maFast.getLast(); // Última Média Rápida
-        double prevMaFast = maFast.get(maFast.size() - 3); // Penúltima Média Rápida
-        double lastMaSlow = maSlow.getLast(); // Última Média Lenta
-        double prevMaSlow = maSlow.get(maSlow.size() - 3); // Penúltima Média Lenta
+        double lastMaFast = indicators.getMaFast().getLast(); // Última Média Rápida
+        double prevMaFast = indicators.getMaFast().get(indicators.getMaFast().size() - 3); // Penúltima Média Rápida
+        double lastMaSlow = indicators.getMaSlow().getLast(); // Última Média Lenta
+        double prevMaSlow = indicators.getMaSlow().get(indicators.getMaSlow().size() - 3); // Penúltima Média Lenta
 
         // Última volatilidade
-        ArrayList<Double> volatilitys = binanceService.getRollingVolatility();
-        double lastVolatility = volatilitys.get(volatilitys.size() - 2);
+        double lastVolatility = indicators.getVolatility().get(indicators.getVolatility().size() - 2);
 
         // Calcula o gradiente (mudança) das médias móveis
         double fastGradient = lastMaFast - prevMaFast;
