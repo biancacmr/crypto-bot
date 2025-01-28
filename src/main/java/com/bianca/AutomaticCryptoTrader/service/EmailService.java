@@ -3,7 +3,7 @@ package com.bianca.AutomaticCryptoTrader.service;
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.Order;
-import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
+import com.bianca.AutomaticCryptoTrader.model.OrderResponse;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
 import org.springframework.stereotype.Service;
@@ -61,7 +61,7 @@ public class EmailService {
         }
     }
 
-    public void sendEmailOrder(List<String> emailReceiverList, OrderResponseFull order) throws MessagingException {
+    public void sendEmailOrder(List<String> emailReceiverList, OrderResponse order) throws MessagingException {
         String emailSubject = getOrderEmailSubject(order);
 
         String orderBlock = montaHtmlDadosOrdem(order);
@@ -218,31 +218,34 @@ public class EmailService {
         return "NORMAL 🟠";
     }
 
-    private String getOrderEmailSubject(OrderResponseFull order) {
+    private String getOrderEmailSubject(OrderResponse order) {
         String tipoOrdem = order.getSide().trim().equalsIgnoreCase("BUY") ? "Compra" : "Venda";
-        OrderResponseFull.Fill filledTransaction = order.getFills().getFirst();
+        OrderResponse.Fill filledTransaction = order.getFills().getFirst();
 
-        return  "Ordem enviada de " + tipoOrdem + " - " + order.getSymbol()
+        return "Ordem enviada de " + tipoOrdem + " - " + order.getSymbol()
                 + " " + order.getExecutedQty() + "/" + filledTransaction.getPrice();
     }
 
-    public String montaHtmlDadosOrdem(OrderResponseFull order) {
-        OrderResponseFull.Fill filledTransaction = order.getFills().getFirst();
+    public String montaHtmlDadosOrdem(OrderResponse order) {
+        if (order.getSchemaType().equals(OrderResponse.OrderResponseType.FULL)) {
+            OrderResponse.Fill filledTransaction = order.getFills().getFirst();
+        }
+
         String formattedDate = formatDate(order.getTransactTime());
 
         double quantity = Double.parseDouble(order.getExecutedQty());
-        String tipo = order.getSide().equals("BUY") ? "Compra":"Venda";
+        String tipo = order.getSide().equals("BUY") ? "Compra" : "Venda";
         double price = Double.parseDouble(filledTransaction.getPrice());
         double assetPrice = Double.parseDouble(order.getCumulativeQuoteQty());
 
-        String html = "<h2>💲 " + getOrderEmailSubject(order) +  "</h2>" +
+        String html = "<h2>💲 " + getOrderEmailSubject(order) + "</h2>" +
                 "<table>" +
                 "<tr><th>Side</th><td>" + order.getSide() + "</td></tr>" +
                 "<tr><th>Ativo</th><td>" + order.getSymbol() + "</td></tr>" +
                 "<tr><th>Quantidade</th><td>" + binanceService.adjustToStepStr(quantity) + "</td></tr>" +
                 "<tr><th>Moeda</th><td>" + filledTransaction.getCommissionAsset() + "</td></tr>" +
                 "<tr><th>Valor em " + filledTransaction.getCommissionAsset() + "</th><td>" + binanceService.adjustToTickStr(assetPrice) + "</td></tr>" +
-                "<tr><th>Valor na "+tipo+"</th><td>" + binanceService.adjustToTickStr(price) + "</td></tr>" +
+                "<tr><th>Valor na " + tipo + "</th><td>" + binanceService.adjustToTickStr(price) + "</td></tr>" +
                 "<tr><th>Tipo</th><td>" + order.getType() + "</td></tr>" +
                 "<tr><th>Status</th><td>" + order.getStatus() + "</td></tr>" +
                 "<tr><th>Data/Hora</th><td>" + formattedDate + "</td></tr>" +
