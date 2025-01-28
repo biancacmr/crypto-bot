@@ -1,30 +1,33 @@
-package com.bianca.AutomaticCryptoTrader.indicators;
+package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.ExponentialMovingAverage;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
+import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
 import com.bianca.AutomaticCryptoTrader.model.StockData;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class IndicatorsCalculator {
-    @Autowired
+@Service
+public class IndicatorsService {
     private BinanceConfig binanceConfig;
+    private Indicators indicators;
 
-    public IndicatorsCalculator() {
-
+    @Autowired
+    public IndicatorsService(Indicators indicators, BinanceConfig binanceConfig) {
+        this.indicators = indicators;
+        this.binanceConfig = binanceConfig;
     }
 
-    public Indicators calculate(ArrayList<StockData> stockData) {
-        Indicators indicators = new Indicators();
-
+    public void calculateIndicators(ArrayList<StockData> stockData) {
         calculateMovingAverage(stockData, indicators);
         calculateRSI(stockData, indicators);
         calculateVolatily(stockData, indicators);
-
-        return indicators;
     }
 
     /**
@@ -55,7 +58,7 @@ public class IndicatorsCalculator {
      */
     private void calculateRSI(List<StockData> stockData, Indicators indicators) {
         List<Double> series = stockData.stream().map(StockData::getClosePrice).toList();
-        int window = binanceConfig.getRSIWindow();
+        int window = binanceConfig.getRsiWindow();
 
         if (series.size() < window) {
             throw new IllegalArgumentException("A série de preços deve ter pelo menos o tamanho da janela.");

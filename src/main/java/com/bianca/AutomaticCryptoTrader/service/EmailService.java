@@ -1,17 +1,15 @@
 package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.Order;
 import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
-import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.sql.Timestamp;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -19,16 +17,14 @@ import java.util.Properties;
 
 @Service
 public class EmailService {
+    private BinanceService binanceService;
+    private BinanceConfig config;
+    private Indicators indicators;
 
-    @Autowired
-    private final BinanceService binanceService;
-
-    @Autowired
-    private final BinanceConfig config;
-
-    public EmailService(BinanceConfig config, BinanceService binanceService) {
+    public EmailService(BinanceConfig config, BinanceService binanceService, Indicators indicators) {
         this.config = config;
         this.binanceService = binanceService;
+        this.indicators = indicators;
     }
 
     public void sendEmail(List<String> receivers, String subject, String body) throws MessagingException {
@@ -68,13 +64,8 @@ public class EmailService {
     public void sendEmailOrder(List<String> emailReceiverList, OrderResponseFull order) throws MessagingException {
         String emailSubject = getOrderEmailSubject(order);
 
-        // Criando bloco do e-mail com dados da ordem
         String orderBlock = montaHtmlDadosOrdem(order);
-
-        // Criando bloco do e-mail com dados dos indicadores
         String indicatorsBlock = montaHtmlDadosIndicadores();
-
-        // Criando bloco do e-mail com as últimas ordens realizadas
         String lastOrdersBlock = montaHtmlHistoricoOrdens();
 
         // Criando e-mail completo
@@ -100,6 +91,10 @@ public class EmailService {
                 .append("<body>")
                 .append("<div class=\"email-container\">")
                 .append(orderBlock)
+                .append("<br>")
+                .append(indicatorsBlock)
+                .append("<br>")
+                .append(lastOrdersBlock)
                 .append("</div>")
                 .append("</body>")
                 .append("</html>");
@@ -114,7 +109,7 @@ public class EmailService {
         Optional<Order> lastBuyOrderOpt = binanceService.getLastExecutedOrder("BUY");
         if (lastBuyOrderOpt.isPresent()) {
             Order lastBuyOrder = lastBuyOrderOpt.get();
-            String datetimeTransact = binanceService.formatTimestamp(lastBuyOrder.getTime());
+            String datetimeTransact = formatDate(lastBuyOrder.getTime());
             double quantity = Double.parseDouble(lastBuyOrder.getOrigQty());
             double valueInUSDT = Double.parseDouble(lastBuyOrder.getCumulativeQuoteQty()) /
                     Double.parseDouble(lastBuyOrder.getExecutedQty());
@@ -130,11 +125,11 @@ public class EmailService {
                     .append("<tr><th>Quantidade</th><td>")
                     .append(binanceService.adjustToStepStr(quantity))
                     .append("</td></tr>")
-                    .append("<tr><th>Valor em USDT</th><td>")
-                    .append(binanceService.adjustToStepStr(valueInUSDT))
-                    .append("</td></tr>")
                     .append("<tr><th>Valor na Compra</th><td>")
-                    .append(binanceService.adjustToStepStr(totalValue))
+                    .append(binanceService.adjustToTickStr(valueInUSDT))
+                    .append("</td></tr>")
+                    .append("<tr><th>Valor em USDT</th><td>")
+                    .append(binanceService.adjustToTickStr(totalValue))
                     .append("</td></tr>")
                     .append("</table><br>");
         } else {
@@ -148,7 +143,7 @@ public class EmailService {
         Optional<Order> lastSellOrderOpt = binanceService.getLastExecutedOrder("SELL");
         if (lastSellOrderOpt.isPresent()) {
             Order lastSellOrder = lastSellOrderOpt.get();
-            String datetimeTransact = binanceService.formatTimestamp(lastSellOrder.getTime());
+            String datetimeTransact = formatDate(lastSellOrder.getTime());
             double quantity = Double.parseDouble(lastSellOrder.getOrigQty());
             double valueInUSDT = Double.parseDouble(lastSellOrder.getCumulativeQuoteQty()) /
                     Double.parseDouble(lastSellOrder.getExecutedQty());
@@ -164,11 +159,11 @@ public class EmailService {
                     .append("<tr><th>Quantidade</th><td>")
                     .append(binanceService.adjustToStepStr(quantity))
                     .append("</td></tr>")
-                    .append("<tr><th>Valor em USDT</th><td>")
-                    .append(binanceService.adjustToStepStr(valueInUSDT))
-                    .append("</td></tr>")
                     .append("<tr><th>Valor na Compra</th><td>")
-                    .append(binanceService.adjustToStepStr(totalValue))
+                    .append(binanceService.adjustToTickStr(valueInUSDT))
+                    .append("</td></tr>")
+                    .append("<tr><th>Valor em USDT</th><td>")
+                    .append(binanceService.adjustToTickStr(totalValue))
                     .append("</td></tr>")
                     .append("</table>");
         } else {
@@ -182,23 +177,45 @@ public class EmailService {
     }
 
     private String montaHtmlDadosIndicadores() {
-        StringBuilder html = new StringBuilder();
-        html.append("<h2>📊 Indicadores no momento da operação </h2>")
-                .append("<table>")
-                .append("<tr><th>MA ("+config.getMaFastWindow()+")</th><td>")
-                .append(datetimeTransact)
-                .append("</td></tr>")
-                .append("<tr><th>MA ("+config.getMaSlowWindow()+")</th><td>")
-                .append(binanceService.adjustToStepStr(quantity))
-                .append("</td></tr>")
-                .append("<tr><th>Valor em USDT</th><td>")
-                .append(binanceService.adjustToStepStr(valueInUSDT))
-                .append("</td></tr>")
-                .append("<tr><th>Valor na Compra</th><td>")
-                .append(binanceService.adjustToStepStr(totalValue))
-                .append("</td></tr>")
-                .append("</table>");
-        return html.toString();
+        String html = "<h2>📊 Indicadores no momento da operação </h2>" +
+                "<table>" +
+                "<tr><th>MA (" + config.getMaFastWindow() + ")</th><td>" +
+                indicators.getMaFast().getLast() +
+                "</td><td>" +
+                "GRADIENTE: " + getGradienteMa("FAST") +
+                "</td></tr>" +
+                "<tr><th>MA (" + config.getMaSlowWindow() + ")</th><td>" +
+                indicators.getMaSlow().getLast() +
+                "</td><td>" +
+                "GRADIENTE: " + getGradienteMa("SLOW") +
+                "</td></tr>" +
+                "<tr><th>RSI (" + config.getRsiWindow() + ")</th><td>" +
+                indicators.getRsi().getLast() +
+                "</td><td>" +
+                "CONDIÇÃO: " + getCondicaoRsi() +
+                "</td></tr>" +
+                "</table>";
+        return html;
+    }
+
+    private String getGradienteMa(String type) {
+        if (type.equals("FAST")) {
+            if (indicators.getMaFastGradient() > 0) return "SUBINDO 📈";
+            return "DESCENDO 📉";
+        } else if (type.equals("SLOW")) {
+            if (indicators.getMaSlowGradient() > 0) return "SUBINDO 📈";
+            return "DESCENDO 📉";
+        }
+
+        throw new RuntimeException("Value invalid for MA type");
+    }
+
+    private String getCondicaoRsi() {
+        double rsi = indicators.getRsi().getLast();
+
+        if (rsi > 70) return "SOBRECOMPRADO 🟢";
+        if (rsi < 30) return "SOBREVENDIDO 🔴";
+        return "NORMAL 🟠";
     }
 
     private String getOrderEmailSubject(OrderResponseFull order) {
@@ -213,14 +230,19 @@ public class EmailService {
         OrderResponseFull.Fill filledTransaction = order.getFills().getFirst();
         String formattedDate = formatDate(order.getTransactTime());
 
+        double quantity = Double.parseDouble(order.getExecutedQty());
+        String tipo = order.getSide().equals("BUY") ? "Compra":"Venda";
+        double price = Double.parseDouble(filledTransaction.getPrice());
+        double assetPrice = Double.parseDouble(order.getCumulativeQuoteQty());
+
         String html = "<h2>💲 " + getOrderEmailSubject(order) +  "</h2>" +
                 "<table>" +
                 "<tr><th>Side</th><td>" + order.getSide() + "</td></tr>" +
                 "<tr><th>Ativo</th><td>" + order.getSymbol() + "</td></tr>" +
-                "<tr><th>Quantidade</th><td>" + order.getExecutedQty() + "</td></tr>" +
+                "<tr><th>Quantidade</th><td>" + binanceService.adjustToStepStr(quantity) + "</td></tr>" +
                 "<tr><th>Moeda</th><td>" + filledTransaction.getCommissionAsset() + "</td></tr>" +
-                "<tr><th>Valor em " + filledTransaction.getCommissionAsset() + "</th><td>" + order.getCumulativeQuoteQty() + "</td></tr>" +
-                "<tr><th>Valor na Venda</th><td>" + filledTransaction.getPrice() + "</td></tr>" +
+                "<tr><th>Valor em " + filledTransaction.getCommissionAsset() + "</th><td>" + binanceService.adjustToTickStr(assetPrice) + "</td></tr>" +
+                "<tr><th>Valor na "+tipo+"</th><td>" + binanceService.adjustToTickStr(price) + "</td></tr>" +
                 "<tr><th>Tipo</th><td>" + order.getType() + "</td></tr>" +
                 "<tr><th>Status</th><td>" + order.getStatus() + "</td></tr>" +
                 "<tr><th>Data/Hora</th><td>" + formattedDate + "</td></tr>" +
@@ -230,13 +252,21 @@ public class EmailService {
     }
 
     public String formatDate(long timestamp) {
-        // Converter timestamp para uma data/hora legível
+        // Converter timestamp para uma data/hora legível no fuso horário UTC-3
         LocalDateTime dateTimeTransact = Instant.ofEpochMilli(timestamp)
-                .atOffset(ZoneOffset.UTC)
+                .atZone(ZoneId.of("UTC-3"))  // Aqui, estamos ajustando para o fuso horário correto
                 .toLocalDateTime();
 
         // Formatar no padrão dd/MM/yyyy - HH:mm
         return dateTimeTransact.format(DateTimeFormatter.ofPattern("dd/MM/yyyy - HH:mm"));
     }
+
+    private Timestamp convertToUtcMinus3(Timestamp timestamp) {
+        Instant instant = timestamp.toInstant();
+        ZonedDateTime utcMinus3 = instant.atZone(ZoneId.of("UTC-3"));
+        LocalDateTime localDateTime = utcMinus3.toLocalDateTime();
+        return Timestamp.valueOf(localDateTime);
+    }
+
 
 }

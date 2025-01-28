@@ -2,8 +2,6 @@ package com.bianca.AutomaticCryptoTrader.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +59,34 @@ public class BinanceConfig {
 
     @Value("${binance.maxBuyValue}")
     private Double maxBuyValue;
+
+    @Value("${binance.maFastWindow}")
+    private int maFastWindow;
+
+    @Value("${binance.maSlowWindow}")
+    private int maSlowWindow;
+
+    @Value("${binance.rsiWindow}")
+    private int rsiWindow;
+
+    @Value("${binance.volatilityWindow}")
+    private int volatilityWindow;
+
+    public int getRsiWindow() {
+        return this.rsiWindow;
+    }
+
+    public int getVolatilityWindow() {
+        return this.volatilityWindow;
+    }
+
+    public int getMaSlowWindow() {
+        return this.maSlowWindow;
+    }
+
+    public int getMaFastWindow() {
+        return maFastWindow;
+    }
 
     public List<String> getEmailReceiverList() {
         List<String> emailList = new ArrayList<>();
@@ -136,21 +162,5 @@ public class BinanceConfig {
 
     public double getMaxBuyValue() {
         return maxBuyValue;
-    }
-
-    public int getMaFastWindow() {
-        return 7;
-    }
-
-    public int getMaSlowWindow() {
-        return 40;
-    }
-
-    public int getRSIWindow() {
-        return 14;
-    }
-
-    public int getVolatilityWindow() {
-        return 40;
     }
 }

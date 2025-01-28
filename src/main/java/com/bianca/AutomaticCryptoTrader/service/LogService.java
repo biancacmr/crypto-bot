@@ -9,10 +9,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 public class LogService {
-    private static Logger LOGGER;
+    private final Logger LOGGER;
 
     public LogService(Logger logger) {
-        LOGGER = logger;
+        this.LOGGER = logger;
     }
 
     public void createLogOrder(JSONObject order) {

@@ -1,11 +1,10 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
-import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import com.bianca.AutomaticCryptoTrader.service.EmailService;
-import com.bianca.AutomaticCryptoTrader.indicators.IndicatorsCalculator;
+import com.bianca.AutomaticCryptoTrader.service.IndicatorsService;
 import com.bianca.AutomaticCryptoTrader.service.StrategiesService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -21,17 +20,18 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class BotExecution {
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final int BASE_DELAY = 15;
+    private final StrategiesService strategiesService;
     private final BinanceService binanceService;
+    private final IndicatorsService indicatorsCalculator;
     private final BinanceConfig binanceConfig;
-    private final IndicatorsCalculator indicatorsCalculator;
-
-    @Autowired
     private final EmailService emailService;
 
-    public BotExecution(BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsCalculator indicatorsCalculator, EmailService emailService) {
+    @Autowired
+    public BotExecution(StrategiesService strategiesService, BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsService indicatorsCalculator, EmailService emailService) {
+        this.strategiesService = strategiesService;
         this.binanceService = binanceService;
         this.binanceConfig = binanceConfig;
         this.indicatorsCalculator = indicatorsCalculator;
@@ -63,75 +63,22 @@ public class BotExecution {
             LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
 
             // Estratégias sentinelas de saída
-            // Se perder mais que o panic sell aceitável, ele sai a mercado, independente.
+            // Se perder mais que o panic sell aceitável, ele sai a mercado.
             if (binanceService.stopLossTrigger()) {
                 LOGGER.info("STOP LOSS executado - Saindo a preço de mercado...");
                 scheduleTask(delay);
             }
 
             // Calcular indicadores
-            Indicators indicators = indicatorsCalculator.calculate(binanceService.getStockData());
-            binanceService.setIndicators(indicators);
+            indicatorsCalculator.calculateIndicators(binanceService.getStockData());
 
             // Executar estratégias
-            StrategiesService strategiesService = new StrategiesService(LOGGER, binanceConfig, indicators);
             Boolean tradeDecision = strategiesService.getFinalDecision();
             binanceService.setLastTradeDecision(tradeDecision);
 
             if (tradeDecision != null) {
-                // Cancela as ordens abertas, se houver alguma
-                if (binanceService.hasOpenOrders("BUY") || binanceService.hasOpenOrders("SELL")) {
-                    LOGGER.info("\n---------------------------------------------\n");
-                    binanceService.cancelAllOrders();
-                    Thread.sleep(2000);
-                }
-
-                /* Se a posição atual for VENDIDA e a decisão for de COMPRA, compra o ativo
-                  Se a posição atual for COMPRADA e a decisão for de VENDA, vende o ativo
-                  Demais casos, nada acontece **/
-                if (binanceService.getLastTradeDecision() && !binanceService.getActualTradePosition()) {
-                    LOGGER.info("Ação final: COMPRAR");
-                    LOGGER.info("\n---------------------------------------------\n");
-
-                    LOGGER.info("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
-                    binanceService.printStock(binanceConfig.getStockCode());
-
-                    // Realiza a compra
-//                   binanceService.buyLimitedOrder();
-                    OrderResponseFull orderResponseFull = binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
-                    emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
-                    Thread.sleep(2000);
-
-                    // Atualiza os dados da conta
-                    binanceService.updateAllData();
-
-                    LOGGER.info("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
-                    binanceService.printStock(binanceConfig.getStockCode());
-
-                    delay *= 2;
-                } else if (!binanceService.getLastTradeDecision() && binanceService.getActualTradePosition()) {
-                    LOGGER.info("Ação final: VENDER");
-                    LOGGER.info("\n---------------------------------------------\n");
-
-                    LOGGER.info("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
-                    binanceService.printStock(binanceConfig.getStockCode());
-
-                    // Realiza a venda
-                    binanceService.sellLimitedOrder();
-                    Thread.sleep(2000);
-
-                    // Atualiza os dados da conta
-                    binanceService.updateAllData();
-
-                    LOGGER.info("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
-                    binanceService.printStock(binanceConfig.getStockCode());
-
-                    delay *= 2;
-
-                    delay *= 2;
-                } else {
-                    LOGGER.info("Ação final: MANTER POSIÇÃO");
-                }
+                handleTradeDecision(tradeDecision);
+                delay *= 2;
             } else {
                 LOGGER.info("\n---------------------------------------------\n");
                 LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
@@ -143,6 +90,47 @@ public class BotExecution {
             LOGGER.error("Erro ao executar tarefa agendada: ", e);
             scheduleTask(delay);
         }
+    }
+
+    private void handleTradeDecision(Boolean tradeDecision) throws Exception {
+        if (tradeDecision && !binanceService.getActualTradePosition()) {
+            executeBuyOrder();
+        } else if (!tradeDecision && binanceService.getActualTradePosition()) {
+            executeSellOrder();
+        } else {
+            LOGGER.info("Ação final: MANTER POSIÇÃO");
+        }
+    }
+
+    private void executeBuyOrder() throws Exception {
+        LOGGER.info("Ação final: COMPRAR");
+        LOGGER.info("\n---------------------------------------------\n");
+
+        LOGGER.debug("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
+        binanceService.printStock(binanceConfig.getStockCode());
+
+        OrderResponseFull orderResponseFull = binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
+        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
+        binanceService.updateAllData();
+
+
+        LOGGER.debug("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
+        binanceService.printStock(binanceConfig.getStockCode());
+    }
+
+    private void executeSellOrder() throws Exception {
+        LOGGER.info("Ação final: VENDER");
+        LOGGER.info("\n---------------------------------------------\n");
+
+        LOGGER.debug("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
+        binanceService.printStock(binanceConfig.getStockCode());
+
+        OrderResponseFull orderResponseFull = binanceService.sellLimitedOrder();
+        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
+        binanceService.updateAllData();
+
+        LOGGER.debug("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
+        binanceService.printStock(binanceConfig.getStockCode());
     }
 
     private String getCurrentDateTime() {

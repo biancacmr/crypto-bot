@@ -2,23 +2,15 @@ package com.bianca.AutomaticCryptoTrader.strategies;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
-import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
-import com.bianca.AutomaticCryptoTrader.model.StockData;
-import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import org.slf4j.Logger;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+import org.slf4j.LoggerFactory;
 
 public class MovingAverageAntecipationStrategy {
-    private final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
+    private final Logger LOGGER = LoggerFactory.getLogger(MovingAverageAntecipationStrategy.class);
     private final BinanceConfig binanceConfig;
-    private final Logger LOGGER;
     private final Indicators indicators;
 
-    public MovingAverageAntecipationStrategy(Logger logger, BinanceConfig binanceConfig, Indicators indicators) {
-        this.LOGGER = logger;
+    public MovingAverageAntecipationStrategy(BinanceConfig binanceConfig, Indicators indicators) {
         this.binanceConfig = binanceConfig;
         this.indicators = indicators;
     }

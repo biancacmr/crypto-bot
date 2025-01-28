@@ -2,9 +2,8 @@ package com.bianca.AutomaticCryptoTrader.service;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
-import com.bianca.AutomaticCryptoTrader.model.*;
 import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
-import com.bianca.AutomaticCryptoTrader.task.BotExecution;
+import com.bianca.AutomaticCryptoTrader.model.*;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
 import jakarta.mail.MessagingException;
@@ -23,19 +22,10 @@ import java.math.RoundingMode;
 
 @Service
 public class BinanceService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(BotExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(BinanceService.class);
     private static final LogService LOG_SERVICE = new LogService(LOGGER);
-    private static final MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
-
-    @Autowired
-    private final EmailService emailService;
-
-    private final BinanceConfig config;
-    private final SpotClient client;
-    private Indicators indicators;
 
     private ArrayList<Order> openOrders;
-    private ArrayList<Double> rollingVolatility;
     private Boolean lastTradeDecision = null;
     private boolean actualTradePosition;
     private ArrayList<StockData> stockData;
@@ -47,8 +37,13 @@ public class BinanceService {
     private Double tickSize;
     private Double stepSize;
 
-    public BinanceService(EmailService emailService, BinanceConfig config) {
-        this.emailService = emailService;
+    @Autowired
+    private BinanceConfig config;
+    private SpotClient client;
+    private Indicators indicators;
+
+    public BinanceService(BinanceConfig config, Indicators indicators) {
+        this.indicators = indicators;
         this.config = config;
         this.client = new SpotClientImpl(config.getApiKey(), config.getSecretKey(), config.getUrl());
     }
@@ -61,7 +56,6 @@ public class BinanceService {
         actualTradePosition = updateActualTradePosition();
         stockData = updateStockData();
         openOrders = updateOpenOrders();
-        rollingVolatility = calculateRollingVolatility();
         lastBuyPrice = updateLastBuyPrice();
         lastSellPrice = updateLastSellPrice();
     }
@@ -196,6 +190,20 @@ public class BinanceService {
         return result.doubleValue();
     }
 
+    /*  Ajusta o valor para o múltiplo mais próximo do passo definido, lidando com problemas de precisão
+    e garantindo que o resultado não seja retornado em notação científica. **/
+    public String adjustToTickStr(double value) {
+        // Determinar o número de casas decimais do step
+        int decimalPlaces = tickSize < 1 ? Math.max(0, (int) Math.ceil(-Math.log10(tickSize))) : 0;
+
+        // Ajustar o valor ao step usando floor
+        double adjustedValue = Math.floor(value / tickSize) * tickSize;
+
+        // Garantir que o resultado tenha a mesma precisão do step
+        BigDecimal result = BigDecimal.valueOf(adjustedValue).setScale(decimalPlaces, RoundingMode.HALF_UP);
+
+        return result.toPlainString();
+    }
 
     public String adjustToStepStr(double value) {
         // Determinar o número de casas decimais do step
@@ -629,7 +637,7 @@ public class BinanceService {
      * Cria uma ordem de venda por um preço mínimo (Limited Order),
      * utilizando o RSI e o Volume Médio para calcular o valor.
      */
-    public void sellLimitedOrder() throws Exception {
+    public OrderResponseFull sellLimitedOrder() throws Exception {
         try {
             double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
             double volume = stockData.getLast().getVolume(); // Volume atual do mercado
@@ -697,9 +705,7 @@ public class BinanceService {
             LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
             LOG_SERVICE.createLogOrder(response); // Create a log
 
-            // Envia e-mail avisando da ação realizada
-            emailService.sendEmailOrder(config.getEmailReceiverList(), orderResponseFull);
-            LOGGER.info("Email enviado.");
+            return new OrderResponseFull(response);
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
             throw e;
@@ -708,6 +714,7 @@ public class BinanceService {
     }
 
     private double calculateLastAverageVolume() {
+        MovingAverageCalculator movingAverageCalculator = new MovingAverageCalculator();
         List<Double> volumes = stockData.stream().map(StockData::getVolume).toList();
         return movingAverageCalculator.calculateMovingAverage(volumes, 20).getLast();
     }
@@ -808,13 +815,5 @@ public class BinanceService {
 
     public void setLastTradeDecision(Boolean lastTradeDecision) {
         this.lastTradeDecision = lastTradeDecision;
-    }
-
-    public ArrayList<Double> getRollingVolatility() {
-        return rollingVolatility;
-    }
-
-    public void setIndicators(Indicators indicators) {
-        this.indicators = indicators;
     }
 }

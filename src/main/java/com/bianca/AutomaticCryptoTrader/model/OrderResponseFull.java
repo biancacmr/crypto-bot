@@ -7,10 +7,10 @@ import org.json.JSONArray;
 
 public class OrderResponseFull {
     private String symbol;
-    private long orderId;
-    private long orderListId;
+    private int orderId;
+    private int orderListId;
     private String clientOrderId;
-    private long transactTime;
+    private int transactTime;
     private String price;
     private String origQty;
     private String executedQty;
@@ -19,30 +19,30 @@ public class OrderResponseFull {
     private String timeInForce;
     private String type;
     private String side;
-    private long strategyId;
-    private long strategyType;
-    private long workingTime;
+    private int strategyId;
+    private int strategyType;
+    private int workingTime;
     private String selfTradePreventionMode;
     private List<Fill> fills;
 
     public OrderResponseFull(JSONObject json) {
-        this.symbol = (String) json.get("symbol");
-        this.orderId = (long) json.get("orderId");
-        this.orderListId = (long) json.get("orderListId");
-        this.clientOrderId = (String) json.get("clientOrderId");
-        this.transactTime = (long) json.get("transactTime");
-        this.price = (String) json.get("price");
-        this.origQty = (String) json.get("origQty");
-        this.executedQty = (String) json.get("executedQty");
-        this.cumulativeQuoteQty = (String) json.get("cumulativeQuoteQty");
-        this.status = (String) json.get("status");
-        this.timeInForce = (String) json.get("timeInForce");
-        this.type = (String) json.get("type");
-        this.side = (String) json.get("side");
-        this.strategyId = (long) json.get("strategyId");
-        this.strategyType = (long) json.get("strategyType");
-        this.workingTime = (long) json.get("workingTime");
-        this.selfTradePreventionMode = (String) json.get("selfTradePreventionMode");
+        this.symbol = json.getString("symbol");
+        this.orderId = json.getInt("orderId");
+        this.orderListId = json.getInt("orderListId");
+        this.clientOrderId = json.getString("clientOrderId");
+        this.transactTime = json.getInt("transactTime");
+        this.price = json.getString("price");
+        this.origQty = json.getString("origQty");
+        this.executedQty = json.getString("executedQty");
+        this.cumulativeQuoteQty = json.getString("cummulativeQuoteQty");
+        this.status = json.getString("status");
+        this.timeInForce = json.getString("timeInForce");
+        this.type = json.getString("type");
+        this.side = json.getString("side");
+        this.strategyId = json.optInt("strategyId", 0);  // 0 é o valor padrão caso não exista
+        this.strategyType = json.optInt("strategyType", 0);  // 0 é o valor padrão caso não exista
+        this.workingTime = json.getInt("workingTime");
+        this.selfTradePreventionMode = json.getString("selfTradePreventionMode");
 
         // Parse "fills" array
         JSONArray fillsArray = (JSONArray) json.get("fills");
@@ -63,10 +63,10 @@ public class OrderResponseFull {
         private String commissionAsset;
 
         public Fill(JSONObject json) {
-            this.price = (String) json.get("price");
-            this.qty = (String) json.get("qty");
-            this.commission = (String) json.get("commission");
-            this.commissionAsset = (String) json.get("commissionAsset");
+            this.price = json.getString("price");
+            this.qty = json.getString("qty");
+            this.commission = json.getString("commission");
+            this.commissionAsset = json.getString("commissionAsset");
         }
 
         public String getPrice() {
@@ -111,19 +111,19 @@ public class OrderResponseFull {
         this.symbol = symbol;
     }
 
-    public long getOrderId() {
+    public int getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(long orderId) {
+    public void setOrderId(int orderId) {
         this.orderId = orderId;
     }
 
-    public long getOrderListId() {
+    public int getOrderListId() {
         return orderListId;
     }
 
-    public void setOrderListId(long orderListId) {
+    public void setOrderListId(int orderListId) {
         this.orderListId = orderListId;
     }
 
@@ -135,11 +135,11 @@ public class OrderResponseFull {
         this.clientOrderId = clientOrderId;
     }
 
-    public long getTransactTime() {
+    public int getTransactTime() {
         return transactTime;
     }
 
-    public void setTransactTime(long transactTime) {
+    public void setTransactTime(int transactTime) {
         this.transactTime = transactTime;
     }
 
@@ -207,27 +207,27 @@ public class OrderResponseFull {
         this.side = side;
     }
 
-    public long getStrategyId() {
+    public int getStrategyId() {
         return strategyId;
     }
 
-    public void setStrategyId(long strategyId) {
+    public void setStrategyId(int strategyId) {
         this.strategyId = strategyId;
     }
 
-    public long getStrategyType() {
+    public int getStrategyType() {
         return strategyType;
     }
 
-    public void setStrategyType(long strategyType) {
+    public void setStrategyType(int strategyType) {
         this.strategyType = strategyType;
     }
 
-    public long getWorkingTime() {
+    public int getWorkingTime() {
         return workingTime;
     }
 
-    public void setWorkingTime(long workingTime) {
+    public void setWorkingTime(int workingTime) {
         this.workingTime = workingTime;
     }
 
