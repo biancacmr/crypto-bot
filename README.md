@@ -17,7 +17,7 @@ Este projeto foi criado **apenas para fins educacionais** e não deve ser utiliz
 ## Índice
 
 - [Começando](#-começando)
-   - [Pré-requisitos](https://github.com/biancacmr/crypto-bot/main/README.md#%EF%B8%8F-pr%C3%A9-requisitos)
+   - [Pré-requisitos](https://github.com/biancacmr/crypto-bot?tab=readme-ov-file#%EF%B8%8F-pr%C3%A9-requisitos)
    - [Configuração](https://github.com/biancacmr/crypto-bot/main/README.md#%EF%B8%8F-configura%C3%A7%C3%A3o)
    - [Executando](#-executando)
    - [Exemplo de Execução](#-exemplo-de-execução)
