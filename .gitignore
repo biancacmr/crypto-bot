@@ -13,6 +13,8 @@ target/
 .springBeans
 .sts4-cache
 application.properties
+binanceApi.properties
+emailConfigs.properties
 application.log
 
 ### IntelliJ IDEA ###
@@ -33,3 +35,8 @@ build/
 
 ### VS Code ###
 .vscode/
+src/main/resources/binanceApi.properties
+*.log
+*.log
+/logs
+*.properties

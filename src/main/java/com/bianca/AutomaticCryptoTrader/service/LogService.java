@@ -1,4 +1,4 @@
-package com.bianca.AutomaticCryptoTrader.model;
+package com.bianca.AutomaticCryptoTrader.service;
 
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -8,11 +8,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
-public class LogHelper {
-    private static Logger LOGGER;
+public class LogService {
+    private final Logger LOGGER;
 
-    public LogHelper(Logger logger) {
-        LOGGER = logger;
+    public LogService(Logger logger) {
+        this.LOGGER = logger;
     }
 
     public void createLogOrder(JSONObject order) {

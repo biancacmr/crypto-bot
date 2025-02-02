@@ -71,4 +71,8 @@ public class StockData {
     public Timestamp getCloseTime() {
         return closeTime;
     }
+
+    public Double getVolume() {
+        return volume;
+    }
 }

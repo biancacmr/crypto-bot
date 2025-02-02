@@ -1,89 +1,99 @@
 package com.bianca.AutomaticCryptoTrader.config;
 
-import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 public class BinanceConfig {
-    @Getter
     @Value("${binance.apiKey}")
     private String apiKey;
 
-    @Getter
     @Value("${binance.secretKey}")
     private String secretKey;
 
-    @Getter
     @Value("${binance.url}")
     private String url;
 
-    @Getter
     @Value("${binance.stockCode}")
     private String stockCode;
 
-    @Getter
     @Value("${binance.operationCode}")
     private String operationCode;
 
-    @Getter
     @Value("${binance.candlePeriod}")
     private String candlePeriod;
 
-    @Getter
     @Value("${binance.tradedQuantity}")
     private Double tradedQuantity;
 
-    @Getter
     @Value("${binance.volatilityFactor}")
     private Double volatilityFactor;
 
-    @Getter
-    @Value("${binance.stockPrecisionDigits}")
-    private int stockPrecisionDigits;
+    @Value("${binance.stopLossPercentage}")
+    private Double stopLossPercentage;
 
-    @Getter
-    @Value("${binance.emailReceiver}")
+    @Value("${binance.acceptableLossPercentage}")
+    private Double acceptableLossPercentage;
+
+    @Value("${binance.fallbackActive}")
+    private boolean fallbackActive;
+
+    @Value("${receiversList}")
     private String emailReceiver;
 
-    @Getter
     @Value("${spring.mail.host}")
     private String emailHost;
 
-    @Getter
     @Value("${spring.mail.port}")
     private String emailPort;
 
-    @Getter
     @Value("${spring.mail.username}")
     private String emailUsername;
 
-    @Getter
     @Value("${spring.mail.password}")
     private String emailPassword;
 
-    public String getEmailPassword() {
-        return emailPassword;
+    @Value("${binance.maxBuyValue}")
+    private Double maxBuyValue;
+
+    @Value("${binance.maFastWindow}")
+    private int maFastWindow;
+
+    @Value("${binance.maSlowWindow}")
+    private int maSlowWindow;
+
+    @Value("${binance.rsiWindow}")
+    private int rsiWindow;
+
+    @Value("${binance.volatilityWindow}")
+    private int volatilityWindow;
+
+    public int getRsiWindow() {
+        return this.rsiWindow;
     }
 
-    public String getEmailUsername() {
-        return emailUsername;
+    public int getVolatilityWindow() {
+        return this.volatilityWindow;
     }
 
-    public String getEmailPort() {
-        return emailPort;
+    public int getMaSlowWindow() {
+        return this.maSlowWindow;
     }
 
-    public String getEmailHost() {
-        return emailHost;
+    public int getMaFastWindow() {
+        return maFastWindow;
     }
 
-    public String getEmailReceiver() {
-        return emailReceiver;
-    }
-
-    public int getStockPrecisionDigits() {
-        return stockPrecisionDigits;
+    public List<String> getEmailReceiverList() {
+        List<String> emailList = new ArrayList<>();
+        if (emailReceiver != null && !emailReceiver.isEmpty()) {
+            emailList = Arrays.asList(emailReceiver.split(","));
+        }
+        return emailList;
     }
 
     public String getApiKey() {
@@ -102,6 +112,10 @@ public class BinanceConfig {
         return stockCode;
     }
 
+    public String getOperationCode() {
+        return operationCode;
+    }
+
     public String getCandlePeriod() {
         return candlePeriod;
     }
@@ -110,11 +124,43 @@ public class BinanceConfig {
         return tradedQuantity;
     }
 
-    public String getOperationCode() {
-        return operationCode;
-    }
-
     public Double getVolatilityFactor() {
         return volatilityFactor;
+    }
+
+    public String getEmailReceiver() {
+        return emailReceiver;
+    }
+
+    public String getEmailHost() {
+        return emailHost;
+    }
+
+    public String getEmailPort() {
+        return emailPort;
+    }
+
+    public String getEmailUsername() {
+        return emailUsername;
+    }
+
+    public String getEmailPassword() {
+        return emailPassword;
+    }
+
+    public Double getStopLossPercentage() {
+        return stopLossPercentage / 100;
+    }
+
+    public Double getAcceptableLossPercentage() {
+        return acceptableLossPercentage / 100;
+    }
+
+    public boolean isFallbackActive() {
+        return fallbackActive;
+    }
+
+    public double getMaxBuyValue() {
+        return maxBuyValue;
     }
 }
