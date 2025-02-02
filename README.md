@@ -17,15 +17,15 @@ Este projeto foi criado **apenas para fins educacionais** e não deve ser utiliz
 ## Índice
 
 - [Começando](#-começando)
-   - [Pré-requisitos](https://github.com/biancacmr/crypto-bot/edit/main/README.md#%EF%B8%8F-pr%C3%A9-requisitos)
-   - [Configuração](https://github.com/biancacmr/crypto-bot/edit/main/README.md#%EF%B8%8F-configura%C3%A7%C3%A3o)
+   - [Pré-requisitos](https://github.com/biancacmr/crypto-bot/main/README.md#%EF%B8%8F-pr%C3%A9-requisitos)
+   - [Configuração](https://github.com/biancacmr/crypto-bot/main/README.md#%EF%B8%8F-configura%C3%A7%C3%A3o)
    - [Executando](#-executando)
    - [Exemplo de Execução](#-exemplo-de-execução)
 - [Como Funciona](#-como-funciona)
 - [Principais Funcionalidades](#-principais-funcionalidades)
 - [Estratégias utilizadas](#-estratégias-utilizadas)
-   - [Estratégia: Moving Average (Média Móvel Simples)](https://github.com/biancacmr/crypto-bot/edit/main/README.md#1-estrat%C3%A9gia-moving-average-m%C3%A9dia-m%C3%B3vel-simples)
-   - [Estratégia: Moving Average Antecipation (Média Móvel Antecipada)](https://github.com/biancacmr/crypto-bot/edit/main/README.md#2-estrat%C3%A9gia-moving-average-antecipation-m%C3%A9dia-m%C3%B3vel-antecipada)
+   - [Estratégia: Moving Average (Média Móvel Simples)](https://github.com/biancacmr/crypto-bot/main/README.md#1-estrat%C3%A9gia-moving-average-m%C3%A9dia-m%C3%B3vel-simples)
+   - [Estratégia: Moving Average Antecipation (Média Móvel Antecipada)](https://github.com/biancacmr/crypto-bot/main/README.md#2-estrat%C3%A9gia-moving-average-antecipation-m%C3%A9dia-m%C3%B3vel-antecipada)
 - [Melhorias Futuras](#-melhorias-futuras)
 
 
