@@ -2,10 +2,16 @@ package com.bianca.AutomaticCryptoTrader.model;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-public class OrderResponseFull {
+public class OrderResponse {
+    public enum OrderResponseType {
+        ACK, RESULT, FULL
+    }
+
+    private OrderResponseType schemaType;
     private String symbol;
     private int orderId;
     private int orderListId;
@@ -25,33 +31,46 @@ public class OrderResponseFull {
     private String selfTradePreventionMode;
     private List<Fill> fills;
 
-    public OrderResponseFull(JSONObject json) {
+    public OrderResponse(JSONObject json) {
+        // atributos comuns para todos os tipos de OrderResponse
         this.symbol = json.getString("symbol");
         this.orderId = json.getInt("orderId");
         this.orderListId = json.getInt("orderListId");
         this.clientOrderId = json.getString("clientOrderId");
         this.transactTime = json.getInt("transactTime");
-        this.price = json.getString("price");
-        this.origQty = json.getString("origQty");
-        this.executedQty = json.getString("executedQty");
-        this.cumulativeQuoteQty = json.getString("cummulativeQuoteQty");
-        this.status = json.getString("status");
-        this.timeInForce = json.getString("timeInForce");
-        this.type = json.getString("type");
-        this.side = json.getString("side");
-        this.strategyId = json.optInt("strategyId", 0);  // 0 é o valor padrão caso não exista
-        this.strategyType = json.optInt("strategyType", 0);  // 0 é o valor padrão caso não exista
-        this.workingTime = json.getInt("workingTime");
-        this.selfTradePreventionMode = json.getString("selfTradePreventionMode");
 
-        // Parse "fills" array
-        JSONArray fillsArray = (JSONArray) json.get("fills");
-        this.fills = new ArrayList<>();
-        if (fillsArray != null) {
-            for (Object obj : fillsArray) {
-                JSONObject fillJson = (JSONObject) obj;
-                this.fills.add(new Fill(fillJson));
+        // atributos para os tipos OrderResponseResult e OrderResponseFull
+        if (json.has("status")) {
+            this.price = json.getString("price");
+            this.origQty = json.getString("origQty");
+            this.executedQty = json.getString("executedQty");
+            this.cumulativeQuoteQty = json.getString("cummulativeQuoteQty");
+            this.status = json.getString("status");
+            this.timeInForce = json.getString("timeInForce");
+            this.type = json.getString("type");
+            this.side = json.getString("side");
+            this.strategyId = json.optInt("strategyId", 0);  // 0 é o valor padrão caso não exista
+            this.strategyType = json.optInt("strategyType", 0);  // 0 é o valor padrão caso não exista
+            this.workingTime = json.getInt("workingTime");
+            this.selfTradePreventionMode = json.getString("selfTradePreventionMode");
+
+            // atributo presente somente no tipo OrderResponseFull
+            if (status.equalsIgnoreCase("FILLED") && json.has("fills")) {
+                JSONArray fillsArray = json.getJSONArray("fills");
+                this.fills = new ArrayList<>();
+                if (fillsArray != null) {
+                    for (Object obj : fillsArray) {
+                        JSONObject fillJson = (JSONObject) obj;
+                        this.fills.add(new Fill(fillJson));
+                    }
+                }
+
+                schemaType = OrderResponseType.FULL;
+            } else {
+                schemaType = OrderResponseType.RESULT;
             }
+        } else {
+            schemaType = OrderResponseType.ACK;
         }
     }
 
@@ -103,6 +122,10 @@ public class OrderResponseFull {
     }
 
     // Getters e Setters para OrderResponseFull
+    public OrderResponseType getSchemaType() {
+        return schemaType;
+    }
+
     public String getSymbol() {
         return symbol;
     }

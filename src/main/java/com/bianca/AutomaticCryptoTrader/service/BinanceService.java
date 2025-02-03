@@ -520,7 +520,7 @@ public class BinanceService {
      * @return
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public OrderResponseFull createLimitedOrder(Double quantity, Double purchaseValue) throws Exception {
+    public OrderResponse createLimitedOrder(Double quantity, Double purchaseValue) throws Exception {
         double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
         double volume = stockData.getLast().getVolume(); // Volume atual do mercado
         double averageVolume = calculateLastAverageVolume(); // Calcula o último volume médio
@@ -566,7 +566,7 @@ public class BinanceService {
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
             LOG_SERVICE.createLogOrder(response);
 
-            return new OrderResponseFull(response);
+            return new OrderResponse(response);
 
             // Envia e-mail avisando da ação realizada
 //            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
@@ -604,7 +604,7 @@ public class BinanceService {
      *
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public OrderResponseFull buyLimitedOrder() throws Exception {
+    public OrderResponse buyLimitedOrder() throws Exception {
         return createLimitedOrder(config.getTradedQuantity() - partialQuantityDiscount, null);
     }
 
@@ -615,7 +615,7 @@ public class BinanceService {
      * @return
      * @throws Exception Em caso de erro ao enviar a ordem.
      */
-    public OrderResponseFull buyLimitedOrderByValue(double purchaseValue) throws Exception {
+    public OrderResponse buyLimitedOrderByValue(double purchaseValue) throws Exception {
         return createLimitedOrder(null, purchaseValue);
     }
 
@@ -637,7 +637,7 @@ public class BinanceService {
      * Cria uma ordem de venda por um preço mínimo (Limited Order),
      * utilizando o RSI e o Volume Médio para calcular o valor.
      */
-    public OrderResponseFull sellLimitedOrder() throws Exception {
+    public OrderResponse sellLimitedOrder() throws Exception {
         try {
             double closePrice = stockData.getLast().getClosePrice(); // Pega o valor do candle atual
             double volume = stockData.getLast().getVolume(); // Volume atual do mercado
@@ -699,13 +699,13 @@ public class BinanceService {
                 throw new RuntimeException("Erro ao realizar request 'newOrder': " + response);
             }
 
-            OrderResponseFull orderResponseFull = new OrderResponseFull(response);
+            OrderResponse orderResponse = new OrderResponse(response);
 
             actualTradePosition = false; // Update position to sold
             LOGGER.info("Ordem VENDA limitada enviada com sucesso: ");
             LOG_SERVICE.createLogOrder(response); // Create a log
 
-            return new OrderResponseFull(response);
+            return new OrderResponse(response);
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de venda: ", e);
             throw e;

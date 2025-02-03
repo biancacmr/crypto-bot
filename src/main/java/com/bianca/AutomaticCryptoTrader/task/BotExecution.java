@@ -1,7 +1,7 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
-import com.bianca.AutomaticCryptoTrader.model.OrderResponseFull;
+import com.bianca.AutomaticCryptoTrader.model.OrderResponse;
 import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import com.bianca.AutomaticCryptoTrader.service.EmailService;
 import com.bianca.AutomaticCryptoTrader.service.IndicatorsService;
@@ -109,10 +109,9 @@ public class BotExecution {
         LOGGER.debug("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
         binanceService.printStock(binanceConfig.getStockCode());
 
-        OrderResponseFull orderResponseFull = binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
-        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
+        OrderResponse orderResponse = binanceService.buyLimitedOrderByValue(binanceConfig.getMaxBuyValue());
+        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponse);
         binanceService.updateAllData();
-
 
         LOGGER.debug("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
         binanceService.printStock(binanceConfig.getStockCode());
@@ -125,8 +124,8 @@ public class BotExecution {
         LOGGER.debug("Carteira em {} [ANTES]:", binanceConfig.getStockCode());
         binanceService.printStock(binanceConfig.getStockCode());
 
-        OrderResponseFull orderResponseFull = binanceService.sellLimitedOrder();
-        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponseFull);
+        OrderResponse orderResponse = binanceService.sellLimitedOrder();
+        emailService.sendEmailOrder(binanceConfig.getEmailReceiverList(), orderResponse);
         binanceService.updateAllData();
 
         LOGGER.debug("Carteira em {} [DEPOIS]:", binanceConfig.getStockCode());
