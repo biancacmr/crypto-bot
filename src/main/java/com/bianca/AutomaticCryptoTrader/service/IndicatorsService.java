@@ -33,6 +33,42 @@ public class IndicatorsService {
     }
 
     private void calculateVortex(ArrayList<StockData> stockData, Indicators indicators) {
+        List<Double> highestPrices = stockData.stream().map(StockData::getHighPrice).toList();
+        List<Double> lowestPrices = stockData.stream().map(StockData::getLowPrice).toList();
+        List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
+        int vortexPeriod = binanceConfig.getVortexPeriod();
+
+        if (highestPrices.size() < vortexPeriod || lowestPrices.size() < vortexPeriod || closePrices.size() < vortexPeriod) {
+            throw new IllegalArgumentException("Not enough data to calculate Vortex Indicator.");
+        }
+
+        List<Double> vortexViPlus = new ArrayList<>();
+        List<Double> vortexViMinus = new ArrayList<>();
+
+        for (int i = vortexPeriod; i < highestPrices.size(); i++) {
+            double sumTrueRange = 0;
+            double sumVIPlus = 0;
+            double sumVIMinus = 0;
+
+            for (int j = i - vortexPeriod + 1; j <= i; j++) {
+                double trueRange = Math.max(highestPrices.get(j), closePrices.get(j - 1)) - Math.min(lowestPrices.get(j), closePrices.get(j - 1));
+                double viPlus = Math.abs(highestPrices.get(j) - highestPrices.get(j - 1));
+                double viMinus = Math.abs(lowestPrices.get(j) - lowestPrices.get(j - 1));
+
+                sumTrueRange += trueRange;
+                sumVIPlus += viPlus;
+                sumVIMinus += viMinus;
+            }
+
+            double viPlus = sumVIPlus / sumTrueRange;
+            double viMinus = sumVIMinus / sumTrueRange;
+
+            vortexViPlus.add(viPlus);
+            vortexViMinus.add(viMinus);
+        }
+
+       indicators.setVortexViMinus(vortexViMinus);
+       indicators.setVortexViPlus(vortexViPlus);
     }
 
     public void calculateMACD(List<StockData> stockData, Indicators indicators) {

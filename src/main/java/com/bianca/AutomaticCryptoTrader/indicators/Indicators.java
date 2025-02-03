@@ -16,8 +16,26 @@ public class Indicators {
     private List<Double> MACDLine;
     private List<Double> MACDSignalLine;
     private List<Double> MACDHistogram;
+    private List<Double> vortexViPlus = new ArrayList<>();
+    private List<Double> vortexViMinus = new ArrayList<>();
 
     public Indicators() {
+    }
+
+    public void setVortexViMinus(List<Double> vortexViMinus) {
+        this.vortexViMinus = vortexViMinus;
+    }
+
+    public void setVortexViPlus(List<Double> vortexViPlus) {
+        this.vortexViPlus = vortexViPlus;
+    }
+
+    public List<Double> getVortexViMinus() {
+        return vortexViMinus;
+    }
+
+    public List<Double> getVortexViPlus() {
+        return vortexViPlus;
     }
 
     public List<Double> getRsi() {

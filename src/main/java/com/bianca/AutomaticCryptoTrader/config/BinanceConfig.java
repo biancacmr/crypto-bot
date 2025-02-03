@@ -81,6 +81,13 @@ public class BinanceConfig {
     @Value("${binance.smoothingParameterMACD}")
     private int smoothingParameterMACD;
 
+    @Value("${binance.vortexPeriod}")
+    private int vortexPeriod;
+
+    public int getVortexPeriod() {
+        return vortexPeriod;
+    }
+
     public int getFastWindowMACD() {
         return fastWindowMACD;
     }
