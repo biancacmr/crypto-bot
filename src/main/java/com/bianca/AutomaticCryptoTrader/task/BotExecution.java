@@ -1,11 +1,10 @@
 package com.bianca.AutomaticCryptoTrader.task;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
+import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.model.OrderResponse;
-import com.bianca.AutomaticCryptoTrader.service.BinanceService;
-import com.bianca.AutomaticCryptoTrader.service.EmailService;
-import com.bianca.AutomaticCryptoTrader.service.IndicatorsService;
-import com.bianca.AutomaticCryptoTrader.service.StrategiesService;
+import com.bianca.AutomaticCryptoTrader.service.*;
+import com.bianca.AutomaticCryptoTrader.strategies.MACDStrategy;
 import com.bianca.AutomaticCryptoTrader.strategies.TradeSignal;
 import com.binance.connector.client.impl.spot.Trade;
 import jakarta.annotation.PostConstruct;
@@ -30,14 +29,16 @@ public class BotExecution {
     private final IndicatorsService indicatorsCalculator;
     private final BinanceConfig binanceConfig;
     private final EmailService emailService;
+    private Indicators indicators;
 
     @Autowired
-    public BotExecution(StrategiesService strategiesService, BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsService indicatorsCalculator, EmailService emailService) {
+    public BotExecution(StrategiesService strategiesService, BinanceService binanceService, BinanceConfig binanceConfig, IndicatorsService indicatorsCalculator, EmailService emailService, Indicators indicators) {
         this.strategiesService = strategiesService;
         this.binanceService = binanceService;
         this.binanceConfig = binanceConfig;
         this.indicatorsCalculator = indicatorsCalculator;
         this.emailService = emailService;
+        this.indicators = indicators;
     }
 
     @PostConstruct
@@ -52,46 +53,49 @@ public class BotExecution {
     public void execute() {
         int delay = BASE_DELAY;
 
-        try {
-            LOGGER.info("---------------------------------------------");
-            LOGGER.info("Robô iniciando...");
-            LOGGER.info("---------------------------------------------\n");
+        BackTestService backTestService = new BackTestService(indicators, binanceConfig, binanceService, indicatorsCalculator);
+        backTestService.runBacktest(new MACDStrategy(binanceConfig, indicators));
 
-            binanceService.updateAllData();
-
-            LOGGER.info("\n---------------------------------------------\n");
-            LOGGER.info("Executado {}", getCurrentDateTime());
-            LOGGER.info("Posição atual: {}", binanceService.getActualTradePosition() ? "COMPRADO" : "VENDIDO");
-            LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
-
-            // Estratégias sentinelas de saída
-            // Se perder mais que o panic sell aceitável, ele sai a mercado.
-            if (binanceService.stopLossTrigger()) {
-                LOGGER.info("STOP LOSS executado - Saindo a preço de mercado...");
-                scheduleTask(delay);
-            }
-
-            // Calcular indicadores
-            indicatorsCalculator.calculateIndicators(binanceService.getStockData());
-
-            // Executar estratégias
-            TradeSignal tradeDecision = strategiesService.getFinalDecision();
-            binanceService.setLastTradeDecision(tradeDecision);
-
-            if (!tradeDecision.equals(TradeSignal.HOLD)) {
-                handleTradeDecision(tradeDecision);
-                delay *= 2;
-            } else {
-                LOGGER.info("\n---------------------------------------------\n");
-                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
-            }
-
-            LOGGER.info("\n---------------------------------------------\n");
-            scheduleTask(delay);
-        } catch (Exception e) {
-            LOGGER.error("Erro ao executar tarefa agendada: ", e);
-            scheduleTask(delay);
-        }
+//        try {
+//            LOGGER.info("---------------------------------------------");
+//            LOGGER.info("Robô iniciando...");
+//            LOGGER.info("---------------------------------------------\n");
+//
+//            binanceService.updateAllData();
+//
+//            LOGGER.info("\n---------------------------------------------\n");
+//            LOGGER.info("Executado {}", getCurrentDateTime());
+//            LOGGER.info("Posição atual: {}", binanceService.getActualTradePosition() ? "COMPRADO" : "VENDIDO");
+//            LOGGER.info("Balanço atual: {} ({})", binanceService.getLastStockAccountBalance(), binanceConfig.getStockCode());
+//
+//            // Estratégias sentinelas de saída
+//            // Se perder mais que o panic sell aceitável, ele sai a mercado.
+//            if (binanceService.stopLossTrigger()) {
+//                LOGGER.info("STOP LOSS executado - Saindo a preço de mercado...");
+//                scheduleTask(delay);
+//            }
+//
+//            // Calcular indicadores
+//            indicatorsCalculator.calculateIndicators(binanceService.getStockData());
+//
+//            // Executar estratégias
+//            TradeSignal tradeDecision = strategiesService.getFinalDecision();
+//            binanceService.setLastTradeDecision(tradeDecision);
+//
+//            if (!tradeDecision.equals(TradeSignal.HOLD)) {
+//                handleTradeDecision(tradeDecision);
+//                delay *= 2;
+//            } else {
+//                LOGGER.info("\n---------------------------------------------\n");
+//                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
+//            }
+//
+//            LOGGER.info("\n---------------------------------------------\n");
+//            scheduleTask(delay);
+//        } catch (Exception e) {
+//            LOGGER.error("Erro ao executar tarefa agendada: ", e);
+//            scheduleTask(delay);
+//        }
     }
 
     private void handleTradeDecision(TradeSignal tradeDecision) throws Exception {

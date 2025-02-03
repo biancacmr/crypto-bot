@@ -31,7 +31,7 @@ public class IndicatorsService {
         calculateMACD(stockData, indicators);
         calculateVortex(stockData, indicators);
     }
-
+    
     private void calculateVortex(ArrayList<StockData> stockData, Indicators indicators) {
         List<Double> highestPrices = stockData.stream().map(StockData::getHighPrice).toList();
         List<Double> lowestPrices = stockData.stream().map(StockData::getLowPrice).toList();

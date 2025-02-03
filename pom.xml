@@ -48,30 +48,25 @@
             <version>2.0.1</version>
         </dependency>
 
+        <!-- SLF4J API -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.9</version>
+            <version>1.7.32</version> <!-- Verifique a versão mais recente -->
         </dependency>
 
+        <!-- Logback (implementação de SLF4J) -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.4.12</version>
+            <version>1.2.6</version> <!-- Verifique a versão mais recente -->
         </dependency>
 
+        <!-- Logback Core (necessário para Logback) -->
         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>5.7.2</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.7.2</version>
-            <scope>test</scope>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>1.2.6</version> <!-- Verifique a versão mais recente -->
         </dependency>
 
         <dependency>

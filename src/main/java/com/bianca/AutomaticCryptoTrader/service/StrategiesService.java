@@ -4,6 +4,7 @@ import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageAntecipationStrategy;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageStrategy;
+import com.bianca.AutomaticCryptoTrader.strategies.TradeSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,17 +23,17 @@ public class StrategiesService {
         this.indicators = indicators;
     }
 
-    public Boolean getFinalDecision() {
+    public TradeSignal getFinalDecision() {
         // Estratégia principal: Moving Average Antecipation
         MovingAverageAntecipationStrategy movingAverageAntecipationStrategy = new MovingAverageAntecipationStrategy(binanceConfig, indicators);
-        Boolean tradeDecisionMAANT = movingAverageAntecipationStrategy.getTradeDecision();
+        TradeSignal tradeDecisionMAANT = movingAverageAntecipationStrategy.generateSignal();
 
         if (tradeDecisionMAANT == null && binanceConfig.isFallbackActive()) {
             LOGGER.info("Estratégia de MA Antecipation inconclusiva");
             LOGGER.info("Executando estratégia de fallback...");
 
             MovingAverageStrategy movingAverageStrategy = new MovingAverageStrategy(binanceConfig, indicators);
-            return movingAverageStrategy.getTradeDecision();
+            return movingAverageStrategy.generateSignal();
         }
 
         return tradeDecisionMAANT;

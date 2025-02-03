@@ -5,7 +5,7 @@ import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MovingAverageStrategy implements Strategy {
+public class MovingAverageStrategy {
     private final Logger LOGGER = LoggerFactory.getLogger(MovingAverageStrategy.class);
 
     private final BinanceConfig binanceConfig;
@@ -16,7 +16,7 @@ public class MovingAverageStrategy implements Strategy {
         this.indicators = indicators;
     }
 
-    @Override
+//    @Override
     public TradeSignal generateSignal() {
         // Get the last values of each moving average
         double lastMaFast = indicators.getMaFast().getLast(); // Última Média Rápida

@@ -55,7 +55,7 @@ public class BinanceService {
         tickSize = getAssetTickSize();
         stepSize = getAssetStepSize();
         actualTradePosition = updateActualTradePosition();
-        stockData = updateStockData();
+        stockData = updateStockData(null, null, null);
         openOrders = updateOpenOrders();
         lastBuyPrice = updateLastBuyPrice();
         lastSellPrice = updateLastSellPrice();
@@ -286,11 +286,21 @@ public class BinanceService {
     /**
      * Atualiza as informações do ativo analisado, retornando os dados das candles
      */
-    private ArrayList<StockData> updateStockData() {
+    public ArrayList<StockData> updateStockData(String operationCode, String candlePeriod, Integer limit) {
         Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("symbol", config.getOperationCode());
+
+        // Se operationCode for null ou vazio, usa o valor de binanceConfig
+        String codeToUse = (operationCode == null || operationCode.isEmpty()) ? config.getOperationCode() : operationCode;
+
+        // Se operationCode for null ou vazio, usa o valor de binanceConfig
+        String candlePeriodoToUse = (candlePeriod == null || candlePeriod.isEmpty()) ? config.getCandlePeriod() : candlePeriod;
+
+        // Se operationCode for null ou vazio, usa o valor de binanceConfig
+        Integer limitToUse = (limit == null) ? 500 : limit;
+
+        parameters.put("symbol", codeToUse);
         parameters.put("interval", config.getCandlePeriod());
-        parameters.put("limit", 500);
+        parameters.put("limit", limitToUse);
 
         String rawResponse = client.createMarket().klines(parameters);
 

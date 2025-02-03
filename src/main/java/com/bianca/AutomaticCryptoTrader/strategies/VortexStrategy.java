@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class VortexStrategy implements Strategy {
+public class VortexStrategy {
     private final Logger LOGGER = LoggerFactory.getLogger(VortexStrategy.class);
 
     private final BinanceConfig binanceConfig;
@@ -18,7 +18,7 @@ public class VortexStrategy implements Strategy {
         this.indicators = indicators;
     }
 
-    @Override
+//    @Override
     public TradeSignal generateSignal() {
         List<Double> vortexViPlus = indicators.getVortexViPlus();
         List<Double> vortexViMinus = indicators.getVortexViMinus();

@@ -227,9 +227,9 @@ public class EmailService {
     }
 
     public String montaHtmlDadosOrdem(OrderResponse order) {
-        if (order.getSchemaType().equals(OrderResponse.OrderResponseType.FULL)) {
+//        if (order.getSchemaType().equals(OrderResponse.OrderResponseType.FULL)) {
             OrderResponse.Fill filledTransaction = order.getFills().getFirst();
-        }
+//        }
 
         String formattedDate = formatDate(order.getTransactTime());
 

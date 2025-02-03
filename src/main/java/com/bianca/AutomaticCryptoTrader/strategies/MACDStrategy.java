@@ -18,8 +18,33 @@ public class MACDStrategy implements Strategy {
         this.indicators = indicators;
     }
 
+    /**
+     * Função usada para backtests
+     */
     @Override
-    public TradeSignal generateSignal() {
+    public TradeSignal generateSignal(int candlePosition) {
+        List<Double> macdLine = indicators.getMACDLine();
+        List<Double> signalLine = indicators.getMACDSignalLine();
+
+        double macdCurrent = macdLine.get(candlePosition);
+        double macdPrevious = macdLine.get(candlePosition - 1);
+        double signalPrevious = signalLine.get(candlePosition - 1);
+        double signalCurrent = signalLine.get(candlePosition);
+
+        TradeSignal tradeDecision;
+
+        if (macdPrevious < signalPrevious && macdCurrent > signalCurrent) {
+            tradeDecision = TradeSignal.BUY;
+        } else if (macdPrevious > signalPrevious && macdCurrent < signalCurrent) {
+            tradeDecision = TradeSignal.SELL;
+        } else {
+            tradeDecision = TradeSignal.HOLD;
+        }
+
+        return tradeDecision;
+    }
+
+    public TradeSignal getTradeDecision() {
         List<Double> macdLine = indicators.getMACDLine();
         List<Double> signalLine = indicators.getMACDSignalLine();
 
