@@ -4,17 +4,13 @@ import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class VortexStrategy {
+public class VortexStrategy implements Strategy {
     private final Logger LOGGER = LoggerFactory.getLogger(VortexStrategy.class);
 
-    @Autowired
     private final BinanceConfig binanceConfig;
-
-    @Autowired
     private final Indicators indicators;
 
     public VortexStrategy(BinanceConfig binanceConfig, Indicators indicators) {
@@ -22,7 +18,8 @@ public class VortexStrategy {
         this.indicators = indicators;
     }
 
-    public Boolean getTradeDecision() {
+    @Override
+    public TradeSignal generateSignal() {
         List<Double> vortexViPlus = indicators.getVortexViPlus();
         List<Double> vortexViMinus = indicators.getVortexViMinus();
 
@@ -31,12 +28,14 @@ public class VortexStrategy {
         double viMinus = vortexViMinus.getLast();
         double viMinusPrevious = vortexViMinus.get(vortexViMinus.size() - 2);
 
-        Boolean tradeDecision = null;
+        TradeSignal tradeDecision;
 
         if (viPlus > viMinus) {
-            tradeDecision = true;
+            tradeDecision = TradeSignal.BUY;
         } else if (viMinus > viPlus) {
-            tradeDecision = false;
+            tradeDecision = TradeSignal.SELL;
+        } else {
+            tradeDecision = TradeSignal.HOLD;
         }
 
         // Calcula o gradiente (mudança) das linhas
@@ -53,10 +52,9 @@ public class VortexStrategy {
         LOGGER.info(" | VI- Anterior: {}", viMinusPrevious);
         LOGGER.info(" | Gradiente VI-: {} ({})", viMinusGradient, (viMinusGradient > 0 ? "SUBINDO" : "DESCENDO"));
         LOGGER.info(" | Decisão: {}",
-                tradeDecision == null ? "HOLD" : tradeDecision ? "COMPRAR" : "VENDER");
+                tradeDecision.name());
         LOGGER.info("\n---------------------------------------------\n");
 
         return tradeDecision;
     }
-
 }

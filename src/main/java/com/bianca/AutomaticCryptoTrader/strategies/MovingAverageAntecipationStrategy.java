@@ -5,7 +5,7 @@ import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MovingAverageAntecipationStrategy {
+public class MovingAverageAntecipationStrategy implements Strategy {
     private final Logger LOGGER = LoggerFactory.getLogger(MovingAverageAntecipationStrategy.class);
     private final BinanceConfig binanceConfig;
     private final Indicators indicators;
@@ -15,7 +15,8 @@ public class MovingAverageAntecipationStrategy {
         this.indicators = indicators;
     }
 
-    public Boolean getTradeDecision() {
+    @Override
+    public TradeSignal generateSignal() {
         // Pega os indicadores
         double lastMaFast = indicators.getMaFast().getLast(); // Última Média Rápida
         double prevMaFast = indicators.getMaFast().get(indicators.getMaFast().size() - 3); // Penúltima Média Rápida
@@ -33,20 +34,26 @@ public class MovingAverageAntecipationStrategy {
         double currentDifference = Math.abs(lastMaFast - lastMaSlow);
 
         // Inicializa a decisão
-        Boolean maTradeDecision = null;
+        TradeSignal maTradeDecision;
 
         // Toma a decisão com base em volatilidade + gradiente
         if (currentDifference < (lastVolatility * binanceConfig.getVolatilityFactor())) {
 
             // Comprar se a média rápida está convergindo para cruzar de baixo para cima
             if (fastGradient > 0 && fastGradient > slowGradient) {
-                maTradeDecision = true; // Comprar
+                maTradeDecision = TradeSignal.BUY; // Comprar
             }
 
             // Vender se a média rápida está convergindo para cruzar de cima para baixo
             else if (fastGradient < 0 && fastGradient < slowGradient) {
-                maTradeDecision = false; // Vender
+                maTradeDecision = TradeSignal.SELL; // Vender
             }
+
+            else {
+                maTradeDecision = TradeSignal.HOLD;
+            }
+        } else {
+                maTradeDecision = TradeSignal.HOLD;
         }
 
         LOGGER.info(binanceConfig.getVolatilityFactor().toString());
@@ -62,7 +69,7 @@ public class MovingAverageAntecipationStrategy {
         LOGGER.info(" | Gradiente Rápido: {} ({})", fastGradient, (fastGradient > 0 ? "SUBINDO" : "DESCENDO"));
         LOGGER.info(" | Gradiente Lento: {} ({})", slowGradient, (slowGradient > 0 ? "SUBINDO" : "DESCENDO"));
         LOGGER.info(" | Decisão: {}",
-                maTradeDecision == null ? "NENHUMA" : maTradeDecision ? "COMPRAR" : "VENDER");
+                maTradeDecision.name());
         LOGGER.info("\n---------------------------------------------\n");
 
         return maTradeDecision;

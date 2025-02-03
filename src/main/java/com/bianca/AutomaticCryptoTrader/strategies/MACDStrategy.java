@@ -2,20 +2,15 @@ package com.bianca.AutomaticCryptoTrader.strategies;
 
 import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
-import okhttp3.Headers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class MACDStrategy {
+public class MACDStrategy implements Strategy {
     private final Logger LOGGER = LoggerFactory.getLogger(MACDStrategy.class);
 
-    @Autowired
     private final BinanceConfig binanceConfig;
-
-    @Autowired
     private final Indicators indicators;
 
     public MACDStrategy(BinanceConfig binanceConfig, Indicators indicators) {
@@ -23,7 +18,8 @@ public class MACDStrategy {
         this.indicators = indicators;
     }
 
-    public Boolean getTradeDecision() {
+    @Override
+    public TradeSignal generateSignal() {
         List<Double> macdLine = indicators.getMACDLine();
         List<Double> signalLine = indicators.getMACDSignalLine();
 
@@ -32,12 +28,14 @@ public class MACDStrategy {
         double signalPrevious = signalLine.get(signalLine.size() - 2);
         double signalCurrent = signalLine.getLast();
 
-        Boolean tradeDecision = null;
+        TradeSignal tradeDecision;
 
         if (macdPrevious < signalPrevious && macdCurrent > signalCurrent) {
-            tradeDecision = true;
+            tradeDecision = TradeSignal.BUY;
         } else if (macdPrevious > signalPrevious && macdCurrent < signalCurrent) {
-            tradeDecision = false;
+            tradeDecision = TradeSignal.SELL;
+        } else {
+            tradeDecision = TradeSignal.HOLD;
         }
 
         // Calcula o gradiente (mudança) das linhas
@@ -54,7 +52,7 @@ public class MACDStrategy {
         LOGGER.info(" | MACD Signal Line Anterior: {}", signalPrevious);
         LOGGER.info(" | Gradiente MACD Signal Line: {} ({})", signalGradient, (signalGradient > 0 ? "SUBINDO" : "DESCENDO"));
         LOGGER.info(" | Decisão: {}",
-                tradeDecision == null ? "HOLD" : tradeDecision ? "COMPRAR" : "VENDER");
+                tradeDecision.name());
         LOGGER.info("\n---------------------------------------------\n");
 
         return tradeDecision;

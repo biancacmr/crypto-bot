@@ -6,6 +6,8 @@ import com.bianca.AutomaticCryptoTrader.service.BinanceService;
 import com.bianca.AutomaticCryptoTrader.service.EmailService;
 import com.bianca.AutomaticCryptoTrader.service.IndicatorsService;
 import com.bianca.AutomaticCryptoTrader.service.StrategiesService;
+import com.bianca.AutomaticCryptoTrader.strategies.TradeSignal;
+import com.binance.connector.client.impl.spot.Trade;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,16 +75,16 @@ public class BotExecution {
             indicatorsCalculator.calculateIndicators(binanceService.getStockData());
 
             // Executar estratégias
-//            Boolean tradeDecision = strategiesService.getFinalDecision();
-//            binanceService.setLastTradeDecision(tradeDecision);
-//
-//            if (tradeDecision != null) {
-//                handleTradeDecision(tradeDecision);
-//                delay *= 2;
-//            } else {
-//                LOGGER.info("\n---------------------------------------------\n");
-//                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
-//            }
+            TradeSignal tradeDecision = strategiesService.getFinalDecision();
+            binanceService.setLastTradeDecision(tradeDecision);
+
+            if (!tradeDecision.equals(TradeSignal.HOLD)) {
+                handleTradeDecision(tradeDecision);
+                delay *= 2;
+            } else {
+                LOGGER.info("\n---------------------------------------------\n");
+                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
+            }
 
             LOGGER.info("\n---------------------------------------------\n");
             scheduleTask(delay);
@@ -92,10 +94,10 @@ public class BotExecution {
         }
     }
 
-    private void handleTradeDecision(Boolean tradeDecision) throws Exception {
-        if (tradeDecision && !binanceService.getActualTradePosition()) {
+    private void handleTradeDecision(TradeSignal tradeDecision) throws Exception {
+        if (tradeDecision.equals(TradeSignal.BUY) && !binanceService.getActualTradePosition()) {
             executeBuyOrder();
-        } else if (!tradeDecision && binanceService.getActualTradePosition()) {
+        } else if (tradeDecision.equals(TradeSignal.SELL) && binanceService.getActualTradePosition()) {
             executeSellOrder();
         } else {
             LOGGER.info("Ação final: MANTER POSIÇÃO");

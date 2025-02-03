@@ -4,6 +4,7 @@ import com.bianca.AutomaticCryptoTrader.config.BinanceConfig;
 import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.indicators.MovingAverageCalculator;
 import com.bianca.AutomaticCryptoTrader.model.*;
+import com.bianca.AutomaticCryptoTrader.strategies.TradeSignal;
 import com.binance.connector.client.SpotClient;
 import com.binance.connector.client.impl.SpotClientImpl;
 import jakarta.mail.MessagingException;
@@ -26,7 +27,7 @@ public class BinanceService {
     private static final LogService LOG_SERVICE = new LogService(LOGGER);
 
     private ArrayList<Order> openOrders;
-    private Boolean lastTradeDecision = null;
+    private TradeSignal lastTradeDecision = null;
     private boolean actualTradePosition;
     private ArrayList<StockData> stockData;
     private Double lastStockAccountBalance;
@@ -793,7 +794,7 @@ public class BinanceService {
         return openOrders;
     }
 
-    public boolean getLastTradeDecision() {
+    public TradeSignal getLastTradeDecision() {
         return lastTradeDecision;
     }
 
@@ -813,7 +814,7 @@ public class BinanceService {
         return accountData;
     }
 
-    public void setLastTradeDecision(Boolean lastTradeDecision) {
+    public void setLastTradeDecision(TradeSignal lastTradeDecision) {
         this.lastTradeDecision = lastTradeDecision;
     }
 }
