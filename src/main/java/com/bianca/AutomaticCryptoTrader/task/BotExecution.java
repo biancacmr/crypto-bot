@@ -73,16 +73,16 @@ public class BotExecution {
             indicatorsCalculator.calculateIndicators(binanceService.getStockData());
 
             // Executar estratégias
-            Boolean tradeDecision = strategiesService.getFinalDecision();
-            binanceService.setLastTradeDecision(tradeDecision);
-
-            if (tradeDecision != null) {
-                handleTradeDecision(tradeDecision);
-                delay *= 2;
-            } else {
-                LOGGER.info("\n---------------------------------------------\n");
-                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
-            }
+//            Boolean tradeDecision = strategiesService.getFinalDecision();
+//            binanceService.setLastTradeDecision(tradeDecision);
+//
+//            if (tradeDecision != null) {
+//                handleTradeDecision(tradeDecision);
+//                delay *= 2;
+//            } else {
+//                LOGGER.info("\n---------------------------------------------\n");
+//                LOGGER.info("Decisão Final: INCONCLUSIVA (considere ativar a estratégia de fallback!)");
+//            }
 
             LOGGER.info("\n---------------------------------------------\n");
             scheduleTask(delay);

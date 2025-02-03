@@ -72,6 +72,27 @@ public class BinanceConfig {
     @Value("${binance.volatilityWindow}")
     private int volatilityWindow;
 
+    @Value("${binance.fastWindowMACD}")
+    private int fastWindowMACD;
+
+    @Value("${binance.slowWindowMACD}")
+    private int slowWindowMACD;
+
+    @Value("${binance.smoothingParameterMACD}")
+    private int smoothingParameterMACD;
+
+    public int getFastWindowMACD() {
+        return fastWindowMACD;
+    }
+
+    public int getSlowWindowMACD() {
+        return slowWindowMACD;
+    }
+
+    public int getSmoothingParameterMACD() {
+        return smoothingParameterMACD;
+    }
+
     public int getRsiWindow() {
         return this.rsiWindow;
     }

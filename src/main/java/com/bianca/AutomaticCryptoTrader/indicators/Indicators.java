@@ -13,6 +13,9 @@ public class Indicators {
     private Double maSlowGradient;
     private ArrayList<Double> volatility;
     private List<Double> rsi;
+    private List<Double> MACDLine;
+    private List<Double> MACDSignalLine;
+    private List<Double> MACDHistogram;
 
     public Indicators() {
     }
@@ -63,5 +66,29 @@ public class Indicators {
 
     public void setMaFast(List<Double> maFast) {
         this.maFast = maFast;
+    }
+
+    public void setMACDHistogram(List<Double> MACDHistogram) {
+        this.MACDHistogram = MACDHistogram;
+    }
+
+    public void setMACDLine(List<Double> MACDLine) {
+        this.MACDLine = MACDLine;
+    }
+
+    public void setMACDSignalLine(List<Double> MACDSignalLine) {
+        this.MACDSignalLine = MACDSignalLine;
+    }
+
+    public List<Double> getMACDHistogram() {
+        return MACDHistogram;
+    }
+
+    public List<Double> getMACDLine() {
+        return MACDLine;
+    }
+
+    public List<Double> getMACDSignalLine() {
+        return MACDSignalLine;
     }
 }
