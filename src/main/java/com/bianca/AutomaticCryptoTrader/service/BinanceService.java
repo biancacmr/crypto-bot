@@ -37,6 +37,8 @@ public class BinanceService {
     private Double partialQuantityDiscount = 0.0; // Valor que já foi executado e que será descontado da quantidade, caso uma ordem não seja completamente executada
     private Double tickSize;
     private Double stepSize;
+    private double highestPriceSinceBuy = 0.0;
+    private double trailingStopPrice = 0.0;
 
     @Autowired
     private BinanceConfig config;
@@ -287,49 +289,56 @@ public class BinanceService {
      * Atualiza as informações do ativo analisado, retornando os dados das candles
      */
     public ArrayList<StockData> updateStockData(String operationCode, String candlePeriod, Integer limit) {
-        Map<String, Object> parameters = new LinkedHashMap<>();
+        try {
+            Map<String, Object> parameters = new LinkedHashMap<>();
 
-        // Se operationCode for null ou vazio, usa o valor de binanceConfig
-        String codeToUse = (operationCode == null || operationCode.isEmpty()) ? config.getOperationCode() : operationCode;
+            // Se operationCode for null ou vazio, usa o valor de binanceConfig
+            String codeToUse = (operationCode == null || operationCode.isEmpty()) ? config.getOperationCode() : operationCode;
 
-        // Se operationCode for null ou vazio, usa o valor de binanceConfig
-        String candlePeriodoToUse = (candlePeriod == null || candlePeriod.isEmpty()) ? config.getCandlePeriod() : candlePeriod;
+            // Se operationCode for null ou vazio, usa o valor de binanceConfig
+            String candlePeriodToUse = (candlePeriod == null || candlePeriod.isEmpty()) ? config.getCandlePeriod() : candlePeriod;
 
-        // Se operationCode for null ou vazio, usa o valor de binanceConfig
-        Integer limitToUse = (limit == null) ? 500 : limit;
+            // Se operationCode for null ou vazio, usa o valor de binanceConfig
+            Integer limitToUse = (limit == null) ? 500 : limit;
 
-        parameters.put("symbol", codeToUse);
-        parameters.put("interval", config.getCandlePeriod());
-        parameters.put("limit", limitToUse);
+            parameters.put("symbol", codeToUse);
+            parameters.put("interval", candlePeriodToUse);
+            parameters.put("limit", limitToUse);
 
-        String rawResponse = client.createMarket().klines(parameters);
+            String rawResponse = client.createMarket().klines(parameters);
 
-        if (rawResponse.startsWith("{")) {
-            JSONObject response = new JSONObject(rawResponse);
+            if (rawResponse.startsWith("{")) {
+                JSONObject response = new JSONObject(rawResponse);
 
-            if (response.has("code") && response.has("msg")) {
-                throw new RuntimeException("Erro ao realizar request 'klines': " + response);
+                if (response.has("code") && response.has("msg")) {
+                    throw new RuntimeException("Erro ao realizar request 'klines': " + response);
+                }
+
+                throw new RuntimeException("Erro ao atualizar stock data. Resposta não reconhecida.");
+            } else {
+                JSONArray response = new JSONArray(rawResponse);
+
+                if (response.isEmpty()) {
+                    throw new RuntimeException("Erro ao atualizar stock data. Resposta vazia.");
+                }
+
+                ArrayList<StockData> stockData = new ArrayList<>();
+
+                for (int i = 0; i < response.length(); i++) {
+                    stockData.add(new StockData(response.getJSONArray(i)));
+                }
+
+                if (stockData.isEmpty()) {
+                    throw new RuntimeException("Erro ao atualizar stockData. StockData vazio.");
+                }
+
+                this.stockData = stockData;
+                return stockData;
             }
 
-            throw new RuntimeException("Erro ao atualizar stock data. Resposta não reconhecida.");
-        } else {
-            JSONArray response = new JSONArray(rawResponse);
-
-            if (response.isEmpty()) {
-                throw new RuntimeException("Erro ao atualizar stock data. Resposta vazia.");
-            }
-
-            ArrayList<StockData> stockData = new ArrayList<>();
-
-            for (int i = 0; i < response.length(); i++) {
-                stockData.add(new StockData(response.getJSONArray(i)));
-            }
-
-            if (stockData.isEmpty()) {
-                throw new RuntimeException("Erro ao atualizar stockData. StockData vazio.");
-            }
-
-            return stockData;
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
@@ -417,6 +426,36 @@ public class BinanceService {
     }
 
     /**
+     * Ativa o mecanismo de trailing stop, ajustando dinamicamente o stop-loss conforme o preço sobe.
+     * Se o preço cair abaixo do stop-loss ajustado, vende automaticamente a posição.
+     *
+     * @return {@code true} se o trailing stop for ativado e a venda for executada, {@code false} caso contrário.
+     */
+    public boolean checkTrailingStopTrigger() throws Exception {
+        double closePrice = stockData.getLast().getClosePrice();
+
+        // Atualiza o maior preço desde a compra
+        if (closePrice > highestPriceSinceBuy) {
+            highestPriceSinceBuy = closePrice;
+            trailingStopPrice = highestPriceSinceBuy * (1 - config.getTrailingStopPercentage()); // Atualiza o preço de trailing stop
+        }
+
+        LOGGER.info(" - Preço máximo desde compra: {}", highestPriceSinceBuy);
+        LOGGER.info(" - Preço de Trailing Stop: {}", trailingStopPrice);
+
+        // Se o preço cair abaixo do trailing stop, vende
+        if (closePrice < trailingStopPrice && actualTradePosition) {
+            LOGGER.info("Ativando TRAILING STOP...");
+            cancelAllOrders(); // Cancela as ordens pendentes
+            sellMarketOrder(); // Realiza a venda a mercado
+            return true;
+        }
+
+        return false;
+    }
+
+
+    /**
      * Ativa o mecanismo de stop-loss com base no preço atual, no preço ponderado e na porcentagem de stop-loss.
      * Este metodo verifica se o preço atual da ação e o preço ponderado estão abaixo do preço calculado
      * de stop-loss. Caso as condições sejam atendidas e a posição atual de trade esteja ativa, ele cancela
@@ -474,10 +513,6 @@ public class BinanceService {
 
                 LOGGER.info("Ordem MARKET SELL enviada com sucesso: ");
                 LOG_SERVICE.createLogOrder(response);
-
-                // Envia e-mail avisando da ação realizada
-//                emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Venda de Mercado Executada", createBodyOrder(response));
-//                LOGGER.info("Email enviado.");
             } else {
                 LOGGER.info("ERRO ao vender: Posição já vendida.");
             }
@@ -573,15 +608,14 @@ public class BinanceService {
             }
 
             this.actualTradePosition = true;
+            this.lastBuyPrice = limitPrice; // Armazena o preço de compra
+            this.highestPriceSinceBuy = limitPrice; // Inicializa com o preço de compra
+            this.trailingStopPrice = limitPrice * (1 - config.getTrailingStopPercentage()); // Inicializa o preço de trailing stop
 
             LOGGER.info("Ordem de COMPRA limitada enviada com sucesso:");
             LOG_SERVICE.createLogOrder(response);
 
             return new OrderResponse(response);
-
-            // Envia e-mail avisando da ação realizada
-//            emailService.sendEmail(config.getEmailReceiverList(), "Robô Binance - Compra Limitada Executada", createBodyOrder(response));
-//            LOGGER.info("Email enviado.");
         } catch (Exception e) {
             LOGGER.error("Erro ao enviar ordem limitada de compra: ", e);
             throw e;
@@ -591,10 +625,10 @@ public class BinanceService {
     /**
      * Calcula o preço limite com base nas condições de mercado.
      *
-     * @param closePrice Preço de fechamento atual.
-     * @param volume Volume atual do mercado.
+     * @param closePrice    Preço de fechamento atual.
+     * @param volume        Volume atual do mercado.
      * @param averageVolume Volume médio calculado.
-     * @param rsi Valor do RSI.
+     * @param rsi           Valor do RSI.
      * @return Preço limite calculado.
      */
     private double calculateLimitPrice(double closePrice, double volume, double averageVolume, double rsi) {

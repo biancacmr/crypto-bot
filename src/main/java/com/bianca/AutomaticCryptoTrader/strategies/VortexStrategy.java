@@ -7,18 +7,42 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class VortexStrategy {
+public class VortexStrategy implements Strategy {
     private final Logger LOGGER = LoggerFactory.getLogger(VortexStrategy.class);
 
     private final BinanceConfig binanceConfig;
-    private final Indicators indicators;
+    private Indicators indicators;
 
     public VortexStrategy(BinanceConfig binanceConfig, Indicators indicators) {
         this.binanceConfig = binanceConfig;
         this.indicators = indicators;
     }
 
-//    @Override
+    @Override
+    public TradeSignal generateSignal(int candlePosition) {
+        List<Double> vortexViPlus = indicators.getVortexViPlus();
+        List<Double> vortexViMinus = indicators.getVortexViMinus();
+
+        double viPlus = vortexViPlus.get(candlePosition);
+        double viMinus = vortexViMinus.get(candlePosition);
+
+        TradeSignal tradeDecision;
+
+        if (viPlus > viMinus) {
+            tradeDecision = TradeSignal.BUY;
+        } else if (viMinus > viPlus) {
+            tradeDecision = TradeSignal.SELL;
+        } else {
+            tradeDecision = TradeSignal.HOLD;
+        }
+        return tradeDecision;
+    }
+
+    @Override
+    public void setIndicators(Indicators indicators) {
+        this.indicators = indicators;
+    }
+
     public TradeSignal generateSignal() {
         List<Double> vortexViPlus = indicators.getVortexViPlus();
         List<Double> vortexViMinus = indicators.getVortexViMinus();

@@ -84,6 +84,13 @@ public class BinanceConfig {
     @Value("${binance.vortexPeriod}")
     private int vortexPeriod;
 
+    @Value("${binance.trailingStopPercentage}")
+    private double trailingStopPercentage;
+
+    public double getTrailingStopPercentage() {
+        return trailingStopPercentage/100;
+    }
+
     public int getVortexPeriod() {
         return vortexPeriod;
     }

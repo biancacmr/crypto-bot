@@ -9,6 +9,7 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.LinkOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,44 +32,82 @@ public class IndicatorsService {
         calculateMACD(stockData, indicators);
         calculateVortex(stockData, indicators);
     }
-    
+
     private void calculateVortex(ArrayList<StockData> stockData, Indicators indicators) {
         List<Double> highestPrices = stockData.stream().map(StockData::getHighPrice).toList();
         List<Double> lowestPrices = stockData.stream().map(StockData::getLowPrice).toList();
         List<Double> closePrices = stockData.stream().map(StockData::getClosePrice).toList();
-        int vortexPeriod = binanceConfig.getVortexPeriod();
+        int vortexPeriod = binanceConfig.getVortexPeriod(); // Assuming binanceConfig provides the period
 
-        if (highestPrices.size() < vortexPeriod || lowestPrices.size() < vortexPeriod || closePrices.size() < vortexPeriod) {
+        if (stockData.size() < vortexPeriod) {
             throw new IllegalArgumentException("Not enough data to calculate Vortex Indicator.");
         }
+
+//        List<Double> vortexViPlus = new ArrayList<>();
+//        List<Double> vortexViMinus = new ArrayList<>();
+//
+//        // Loop through the data starting from the vortexPeriod-th data point
+//        for (int i = vortexPeriod; i < highestPrices.size(); i++) {
+//            double sumTrueRange = 0;
+//            double sumVIPlus = 0;
+//            double sumVIMinus = 0;
+//
+//            // Loop through the previous vortexPeriod data points
+//            for (int j = i - vortexPeriod + 1; j <= i; j++) {
+//                // Calculate True Range (TR)
+//                double trueRange = Math.max(highestPrices.get(j), closePrices.get(j - 1)) - Math.min(lowestPrices.get(j), closePrices.get(j - 1));
+//
+//                // Calculate +DM (Positive Directional Movement)
+//                double viPlus = Math.abs(highestPrices.get(j) - highestPrices.get(j - 1));
+//
+//                // Calculate -DM (Negative Directional Movement)
+//                double viMinus = Math.abs(lowestPrices.get(j) - lowestPrices.get(j - 1));
+//
+//                // Accumulate sums for the Vortex Indicator calculation
+//                sumTrueRange += trueRange;
+//                sumVIPlus += viPlus;
+//                sumVIMinus += viMinus;
+//            }
+//
+//            // Calculate the Vortex Indicator for this period
+//            double viPlus = sumVIPlus / sumTrueRange;
+//            double viMinus = sumVIMinus / sumTrueRange;
+//
+//            // Store the results in the lists
+//            vortexViPlus.add(viPlus);
+//            vortexViMinus.add(viMinus);
+//        }
 
         List<Double> vortexViPlus = new ArrayList<>();
         List<Double> vortexViMinus = new ArrayList<>();
 
-        for (int i = vortexPeriod; i < highestPrices.size(); i++) {
-            double sumTrueRange = 0;
-            double sumVIPlus = 0;
-            double sumVIMinus = 0;
+        List<Double> plusVm = new ArrayList<>();
+        List<Double> minusVm = new ArrayList<>();
+        List<Double> trueRange = new ArrayList<>();
 
-            for (int j = i - vortexPeriod + 1; j <= i; j++) {
-                double trueRange = Math.max(highestPrices.get(j), closePrices.get(j - 1)) - Math.min(lowestPrices.get(j), closePrices.get(j - 1));
-                double viPlus = Math.abs(highestPrices.get(j) - highestPrices.get(j - 1));
-                double viMinus = Math.abs(lowestPrices.get(j) - lowestPrices.get(j - 1));
-
-                sumTrueRange += trueRange;
-                sumVIPlus += viPlus;
-                sumVIMinus += viMinus;
-            }
-
-            double viPlus = sumVIPlus / sumTrueRange;
-            double viMinus = sumVIMinus / sumTrueRange;
-
-            vortexViPlus.add(viPlus);
-            vortexViMinus.add(viMinus);
+        for (int i = 1; i < stockData.size(); i++) {
+            plusVm.add(Math.abs(highestPrices.get(i) - lowestPrices.get(i - 1)));
+            minusVm.add(Math.abs(lowestPrices.get(i) - highestPrices.get(i - 1)));
+            trueRange.add(Math.max(highestPrices.get(i) - lowestPrices.get(i),
+                    Math.max(Math.abs(highestPrices.get(i) - closePrices.get(i - 1)),
+                            Math.abs(lowestPrices.get(i) - closePrices.get(i - 1)))));
         }
 
-       indicators.setVortexViMinus(vortexViMinus);
-       indicators.setVortexViPlus(vortexViPlus);
+        for (int i = vortexPeriod - 1; i < plusVm.size(); i++) {
+            double sumPlusVm = plusVm.subList(i - vortexPeriod + 1, i + 1).stream().mapToDouble(Double::doubleValue).sum();
+            double sumMinusVm = minusVm.subList(i - vortexPeriod + 1, i + 1).stream().mapToDouble(Double::doubleValue).sum();
+            double sumTr = trueRange.subList(i - vortexPeriod + 1, i + 1).stream().mapToDouble(Double::doubleValue).sum();
+
+            vortexViPlus.add(sumPlusVm / sumTr);
+            vortexViMinus.add(sumMinusVm / sumTr);
+        }
+
+        indicators.setVortexViPlus(vortexViPlus);
+        indicators.setVortexViMinus(vortexViMinus);
+
+//        // Set the results in the Indicators object
+//        indicators.setVortexViPlus(vortexViPlus);
+//        indicators.setVortexViMinus(vortexViMinus);
     }
 
     public void calculateMACD(List<StockData> stockData, Indicators indicators) {
@@ -88,8 +127,7 @@ public class IndicatorsService {
         List<Double> macdLine = new ArrayList<>();
         List<Double> histogram = new ArrayList<>();
 
-        int startIndex = Math.max(ema12.size(), ema26.size());
-        for (int i = startIndex; i < ema12.size(); i++) {
+        for (int i = 0; i < ema12.size(); i++) {
             macdLine.add(ema12.get(i) - ema26.get(i));
         }
 

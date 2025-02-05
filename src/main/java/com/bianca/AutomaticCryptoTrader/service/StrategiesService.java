@@ -5,6 +5,7 @@ import com.bianca.AutomaticCryptoTrader.indicators.Indicators;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageAntecipationStrategy;
 import com.bianca.AutomaticCryptoTrader.strategies.MovingAverageStrategy;
 import com.bianca.AutomaticCryptoTrader.strategies.TradeSignal;
+import com.bianca.AutomaticCryptoTrader.strategies.VortexStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,18 +25,21 @@ public class StrategiesService {
     }
 
     public TradeSignal getFinalDecision() {
-        // Estratégia principal: Moving Average Antecipation
-        MovingAverageAntecipationStrategy movingAverageAntecipationStrategy = new MovingAverageAntecipationStrategy(binanceConfig, indicators);
-        TradeSignal tradeDecisionMAANT = movingAverageAntecipationStrategy.generateSignal();
+        VortexStrategy vortexStrategy = new VortexStrategy(binanceConfig, indicators);
+        return vortexStrategy.generateSignal();
 
-        if (tradeDecisionMAANT == null && binanceConfig.isFallbackActive()) {
-            LOGGER.info("Estratégia de MA Antecipation inconclusiva");
-            LOGGER.info("Executando estratégia de fallback...");
+//        // Estratégia principal: Moving Average Antecipation
+//        MovingAverageAntecipationStrategy movingAverageAntecipationStrategy = new MovingAverageAntecipationStrategy(binanceConfig, indicators);
+//        TradeSignal tradeDecisionMAANT = movingAverageAntecipationStrategy.generateSignal();
+//
+//        if (tradeDecisionMAANT == null && binanceConfig.isFallbackActive()) {
+//            LOGGER.info("Estratégia de MA Antecipation inconclusiva");
+//            LOGGER.info("Executando estratégia de fallback...");
+//
+//            MovingAverageStrategy movingAverageStrategy = new MovingAverageStrategy(binanceConfig, indicators);
+//            return movingAverageStrategy.generateSignal();
+//        }
 
-            MovingAverageStrategy movingAverageStrategy = new MovingAverageStrategy(binanceConfig, indicators);
-            return movingAverageStrategy.generateSignal();
-        }
-
-        return tradeDecisionMAANT;
+//        return tradeDecisionMAANT;
     }
 }

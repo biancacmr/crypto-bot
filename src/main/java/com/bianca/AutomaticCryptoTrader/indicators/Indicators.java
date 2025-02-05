@@ -109,4 +109,21 @@ public class Indicators {
     public List<Double> getMACDSignalLine() {
         return MACDSignalLine;
     }
+
+    @Override
+    public String toString() {
+        return "Indicators{" +
+                "maFast=" + maFast +
+                ", maSlow=" + maSlow +
+                ", maFastGradient=" + maFastGradient +
+                ", maSlowGradient=" + maSlowGradient +
+                ", volatility=" + volatility +
+                ", rsi=" + rsi +
+                ", MACDLine=" + MACDLine +
+                ", MACDSignalLine=" + MACDSignalLine +
+                ", MACDHistogram=" + MACDHistogram +
+                ", vortexViPlus=" + vortexViPlus +
+                ", vortexViMinus=" + vortexViMinus +
+                '}';
+    }
 }
